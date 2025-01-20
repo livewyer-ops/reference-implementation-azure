@@ -5,23 +5,33 @@ metadata:
   namespace: argocd
   labels:
     env: dev
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
 spec:
   project: cnoe
   sources:
     - chart: external-dns
       repoURL: https://kubernetes-sigs.github.io/external-dns/
-      targetRevision: 1.13.0
+      targetRevision: 1.15.0
       helm:
         releaseName: external-dns
         valueFiles:
           - $values/packages/external-dns/dev/values.yaml
         parameters:
-          - name: serviceAccount.annotations.eks\.amazonaws\.com/role-arn
-            value: ${ROLE_ARN}
+          - name: provider.name
+            value: azure
           - name: domainFilters[0]
             value: ${DOMAIN_NAME}
+          - name: serviceAccount.annotations.azure\.workload\.identity/client-id
+            value: ${AZURE_CLIENT_ID}
+          - name: extraVolumes[0].name
+            value: "azure-config-file"
+          - name: extraVolumes[0].secret.secretName
+            value: ${AZURE_CONFIG_SECRET}
+          - name: extraVolumeMounts[0].name
+            value: "azure-config-file"
+          - name: extraVolumeMounts[0].mountPath
+            value: "/etc/kubernetes"
+          - name: extraVolumeMounts[0].readOnly
+            value: "true"
     - repoURL: ${GITHUB_URL}
       targetRevision: HEAD
       ref: values

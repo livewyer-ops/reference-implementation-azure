@@ -10,8 +10,8 @@ yq '... comments=""' ${REPO_ROOT}/setups/config.yaml
 echo -e "${GREEN}----------------------------------------------------${NC}"
 echo -e "${PURPLE}\nTargets:${NC}"
 echo "Kubernetes cluster: $(kubectl config current-context)"
-echo "AWS profile (if set): ${AWS_PROFILE}"
-echo "AWS account number: $(aws sts get-caller-identity --query "Account" --output text)"
+echo "Azure account (if set): $(az account show -o json | jq -rc '.user.name')"
+echo "Azure subscription: $(az account show -o json | jq -rc '.name')"
 
 echo -e "${GREEN}\nAre you sure you want to continue?${NC}"
 read -p '(yes/no): ' response

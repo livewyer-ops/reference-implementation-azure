@@ -5,29 +5,41 @@ variable "repo_url" {
 }
 
 variable "tags" {
-    description = "Tags to apply to AWS resources"
-    default = {
-        env = "dev"
-        project = "cnoe"
-    }
-    type = map(string)
+  description = "Tags to apply to AKS resources"
+  default = {
+    env     = "dev"
+    project = "cnoe"
+  }
+  type = map(string)
 }
 
 variable "region" {
-  description = "Region"
+  description = "Azure Region"
   type        = string
-  default     = "us-west-2"
+  default     = ""
+}
+
+variable "subscription_id" {
+  description = "Azure Subscription ID"
+  type        = string
+  default     = ""
+}
+
+variable "resource_group" {
+  description = "Azure Resource Group name"
+  type        = string
+  default     = ""
 }
 
 variable "cluster_name" {
-  description = "EKS Cluster name"
+  description = "AKS Cluster name"
   default     = "cnoe-ref-impl"
   type        = string
 }
 
-variable "hosted_zone_id" {
-  description = "If using external DNS, specify the Route53 hosted zone ID. Required if enable_dns_management is set to true."
-  default     = "Z0202147IFM0KVTW2P35"
+variable "dns_zone_id" {
+  description = "If using external DNS, specify the Azure DNS zone ID. Required if enable_dns_management is set to true."
+  default     = ""
   type        = string
 }
 
@@ -44,13 +56,19 @@ variable "organization_url" {
 }
 
 variable "enable_dns_management" {
-  description = "Do you want to use external dns to manage dns records in Route53?"
+  description = "Do you want to use external dns to manage dns records in Azure DNS?"
   default     = true
   type        = bool
 }
 
 variable "enable_external_secret" {
-  description = "Do you want to use external secret to manage dns records in Route53?"
+  description = "Do you want to use external secret to manage dns records in Azure DNS?"
   default     = true
   type        = bool
+}
+
+variable "service_account_token_expiration_seconds" {
+  type        = number
+  description = "(optional) Represents the expirationSeconds field for the projected service account token"
+  default     = 86400
 }

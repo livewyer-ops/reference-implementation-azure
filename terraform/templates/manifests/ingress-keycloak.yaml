@@ -5,6 +5,8 @@ metadata:
   namespace: keycloak
   annotations:
     cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
 spec:
   ingressClassName: nginx
   tls:
@@ -15,28 +17,7 @@ spec:
     - host: ${KEYCLOAK_DOMAIN_NAME}
       http:
         paths:
-          - path: /realms/master
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8081
           - path: /
-            pathType: Exact
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8081
-          - path: /realms
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
-          - path: /resources
             pathType: Prefix
             backend:
               service:

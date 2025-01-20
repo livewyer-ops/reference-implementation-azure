@@ -9,7 +9,7 @@ check_command() {
 }
 
 # Validation
-clis=("aws" "kubectl" "jq" "kustomize" "curl" "yq")
+clis=("gcloud" "kubectl" "jq" "kustomize" "curl" "yq")
 for cli in "${clis[@]}"; do
   if check_command "$cli"; then
     continue

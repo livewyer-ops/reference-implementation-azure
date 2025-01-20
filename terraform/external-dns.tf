@@ -1,71 +1,67 @@
-
-resource "aws_iam_policy" "external-dns" {
-  count = local.dns_count
-
-  name_prefix = "cnoe-external-dns-"
-  description = "For use with External DNS Controller"
-  policy = jsonencode(
-    {
-        "Version": "2012-10-17",
-        "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-            "route53:ChangeResourceRecordSets",
-            "route53:ListResourceRecordSets",
-            "route53:ListTagsForResource"
-            ],
-            "Resource": [
-            "arn:aws:route53:::hostedzone/${local.hosted_zone_id}"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-            "route53:ListHostedZones"
-            ],
-            "Resource": [
-            "*"
-            ]
-        }
-        ]
-    }
-  )
-}
-
-resource "aws_iam_role_policy_attachment" "external_dns_role_attach" {
-  count = local.dns_count
-
-  role       = module.external_dns_role[0].iam_role_name
-  policy_arn = aws_iam_policy.external-dns[0].arn
-}
-
 module "external_dns_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.14"
+  source = "git::https://github.com/livewyer-ops/terraform-azure-workload-identity.git"
+
   count = local.dns_count
 
-  role_name_prefix = "cnoe-external-dns"
-  oidc_providers = {
-    main = {
-      provider_arn               = data.aws_iam_openid_connect_provider.eks_oidc.arn
-      namespace_service_accounts = ["external-dns:external-dns"]
-    }
-  }
-  tags = var.tags
+  resource_group_name = data.azurerm_resource_group.current.name
+  location            = data.azurerm_resource_group.current.location
+
+  oidc_issuer_url             = data.azurerm_kubernetes_cluster.target.oidc_issuer_url
+  create_kubernetes_namespace = true
+  create_service_account      = false
+  namespace                   = "external-dns"
+  service_account_name        = "external-dns"
+  role_assignments = [
+    {
+      role_definition_name = "DNS Zone Contributor"
+      scope                = data.azurerm_dns_zone.selected[0].id
+    },
+    {
+      role_definition_name = "Reader"
+      scope                = data.azurerm_resource_group.dns.id
+    },
+  ]
 }
 
 resource "kubectl_manifest" "application_argocd_external_dns" {
+  count = local.dns_count
+
   yaml_body = templatefile("${path.module}/templates/argocd-apps/external-dns.yaml", {
-      GITHUB_URL = local.repo_url
-      ROLE_ARN = module.external_dns_role[0].iam_role_arn
-      DOMAIN_NAME = data.aws_route53_zone.selected[0].name
+    GITHUB_URL          = local.repo_url
+    DOMAIN_NAME         = data.azurerm_dns_zone.selected[0].name
+    AZURE_CLIENT_ID     = module.external_dns_role[0].client_id
+    AZURE_CONFIG_SECRET = "external-dns-azure"
     }
-    )
+  )
 
   provisioner "local-exec" {
-    command = "kubectl wait --for=jsonpath=.status.health.status=Healthy --timeout=300s -n argocd application/external-dns"
-
+    command     = "kubectl wait --for=jsonpath=.status.health.status=Healthy --timeout=300s -n argocd application/external-dns"
     interpreter = ["/bin/bash", "-c"]
   }
+
+  depends_on = [kubernetes_manifest.external_dns_config]
+}
+
+resource "kubernetes_manifest" "external_dns_config" {
+  count = local.dns_count
+
+  manifest = {
+    "apiVersion" = "v1"
+    "kind"       = "Secret"
+    "type"       = "Opaque"
+    "metadata" = {
+      "name"      = "external-dns-azure"
+      "namespace" = "external-dns"
+    }
+    "data" = {
+      "azure.json" = base64encode(jsonencode({
+        "tenantId"                     = "${data.azurerm_subscription.current.tenant_id}"
+        "subscriptionId"               = "${data.azurerm_subscription.current.subscription_id}"
+        "resourceGroup"                = "${local.dns_zone_id["resource_group_name"]}"
+        "useWorkloadIdentityExtension" = true
+      }))
+    }
+  }
+
+  depends_on = [module.external_dns_role]
 }

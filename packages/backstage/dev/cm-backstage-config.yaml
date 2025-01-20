@@ -105,14 +105,48 @@ data:
       rules:
         - allow: [Component, System, API, Resource, Location, Template]
       locations:
-        # Examples from a public GitHub repository.
         - type: url
-          target: https://github.com/awslabs/backstage-templates-on-eks/blob/main/catalog-info.yaml
-        ## Uncomment these lines to add an example org
+          target: https://github.com/Parfuemerie-Douglas/scaffolder-backend-module-azure-pipelines/blob/main/catalog-info.yaml
+        - type: url
+          target: https://github.com/Parfuemerie-Douglas/scaffolder-backend-module-azure-repositories/blob/main/catalog-info.yaml
+        - type: url
+          target: https://github.com/yaegashi/dx2devops-backstage-containerapp/blob/main/catalog-info.yaml
+        - type: url
+          target: https://github.com/jsburckhardt/backstage-azureinfra/blob/main/template.yaml
+        # AWS Data-on-EKS
         # - type: url
-        #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
+        #   target: https://github.com/awslabs/backstage-templates-on-eks/blob/main/catalog-info.yaml
+        # Examples from a public GitHub repository.
+        # Uncomment these lines to add an example org
+        # - type: url
+        #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
         #   rules:
         #     - allow: [User, Group]
+      providers:
+        # azureDevOps:
+        #   yourProviderId: # identifies your dataset / provider independent of config changes
+        #   organization: myorg
+        #   project: myproject
+        #   repository: service-* # this will match all repos starting with service-*
+        #   path: /catalog-info.yaml
+        #   schedule: # optional; same options as in SchedulerServiceTaskScheduleDefinition
+        #     # supports cron, ISO duration, "human duration" as used in code
+        #     frequency: { minutes: 30 }
+        #     # supports ISO duration, "human duration" as used in code
+        #     timeout: { minutes: 3 }
+        # microsoftGraphOrg:
+        #   default:
+        #     tenantId: ${AZURE_TENANT_ID}
+        #     user:
+        #       filter: accountEnabled eq true and userType eq 'member'
+        #     group:
+        #       filter: >
+        #         securityEnabled eq false
+        #         and mailEnabled eq true
+        #         and groupTypes/any(c:c+eq+'Unified')
+        #     schedule:
+        #       frequency: PT1H
+        #       timeout: PT50M
     kubernetes:
       serviceLocatorMethod:
         type: 'multiTenant'

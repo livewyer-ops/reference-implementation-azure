@@ -10,7 +10,7 @@ spec:
     secondsAfterCompletion: 86400
     secondsAfterSuccess: 43200
     secondsAfterFailure: 86400
-  serviceAccountName: data-on-eks
+  serviceAccountName: data-on-gcp
   entrypoint: main
   templates:
     - name: main

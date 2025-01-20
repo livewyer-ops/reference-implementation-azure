@@ -1,0 +1,13 @@
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: provider-azure-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  tenantID: ${TENANT_ID}
+  subscriptionID: ${SUBSCRIPTION_ID}
+  clientID: ${CLIENT_ID}
+  credentials:
+    source: UserAssignedManagedIdentity

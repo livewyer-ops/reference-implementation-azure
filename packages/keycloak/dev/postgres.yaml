@@ -6,7 +6,7 @@ metadata:
   labels:
     app: postgresql
 spec:
-  storageClassName: gp2
+  storageClassName: default
   capacity:
   accessModes:
     - ReadWriteOnce
@@ -33,28 +33,28 @@ spec:
         app: postgresql
     spec:
       containers:
-      - name: postgres
-        resources:
-          limits:
-            memory: 500Mi
-          requests:
-            cpu: 100m
-            memory: 300Mi
-        image: docker.io/library/postgres:15.3-alpine3.18
-        envFrom:
-        - secretRef:
-            name: postgresql-config
-        ports:
-        - containerPort: 5432
-          name: postgresdb
-        volumeMounts:
-        - name: data
-          mountPath: /var/lib/postgresql/data
-          subPath: postgress
+        - name: postgres
+          resources:
+            limits:
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 300Mi
+          image: docker.io/library/postgres:15.3-alpine3.18
+          envFrom:
+            - secretRef:
+                name: postgresql-config
+          ports:
+            - containerPort: 5432
+              name: postgresdb
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: postgress
       volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: postgresql
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgresql
 
 ---
 apiVersion: v1
@@ -66,8 +66,8 @@ metadata:
     app: postgresql
 spec:
   ports:
-  - port: 5432
-    name: postgres
+    - port: 5432
+      name: postgres
   clusterIP: None
   selector:
     app: postgresql
