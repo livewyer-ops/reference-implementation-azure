@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  labels:
+    env: dev
+spec:
+  project: cnoe
+  sources:
+    - chart: external-dns
+      repoURL: https://kubernetes-sigs.github.io/external-dns/
+      targetRevision: 1.15.0
+      helm:
+        releaseName: external-dns
+        valueFiles:
+          - $values/packages/external-dns/dev/values.yaml
+        parameters:
+          - name: provider.name
+            value: azure
+          - name: domainFilters[0]
+            value: ${DOMAIN_NAME}
+          - name: serviceAccount.annotations.azure\.workload\.identity/client-id
+            value: ${AZURE_CLIENT_ID}
+          - name: extraVolumes[0].name
+            value: "azure-config-file"
+          - name: extraVolumes[0].secret.secretName
+            value: ${AZURE_CONFIG_SECRET}
+          - name: extraVolumeMounts[0].name
+            value: "azure-config-file"
+          - name: extraVolumeMounts[0].mountPath
+            value: "/etc/kubernetes"
+          - name: extraVolumeMounts[0].readOnly
+            value: "true"
+    - repoURL: ${GITHUB_URL}
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: external-dns
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
