@@ -40,7 +40,7 @@ argocd:
         values: ["control-plane-bootstrap", "control-plane"]
 
 aws-load-balancer-controller:
-  enabled: true
+  enabled: false
   # enableAckPodIdentity: true
   namespace: kube-system
   defaultVersion: "1.13.2"
