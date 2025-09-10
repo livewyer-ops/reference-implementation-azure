@@ -1,0 +1,16 @@
+apiVersion: azure.livewyer.io/v1alpha1
+kind: WorkloadIdentity
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  forProvider:
+    location: eastus
+    oidcIssuerURL: https://eastus.oic.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/
+    resourceGroupName: example-group
+    roleAssignments:
+      - roleDefinitionName: DNS Zone Contributor
+        scope: /subscriptions/xxxx-xxxx-xxxx
+      - roleDefinitionName: Reader
+        scope: /subscriptions/yyyy-yyyy-yyyy
+    serviceAccountName: external-dns
