@@ -23,9 +23,8 @@ EXTERNAL_SECRETS_CUSTOM_MANIFESTS_PATH=${REPO_ROOT}/packages/external-secrets/ma
 # Build Argo CD dynamic values
 ARGOCD_DYNAMIC_VALUES_FILE=$(mktemp)
 ISSUER_URL=$([[ "${PATH_ROUTING}" == "false" ]] && echo "keycloak.${DOMAIN_NAME}" || echo "${DOMAIN_NAME}/keycloak")
-cat << EOF > "$ARGOCD_DYNAMIC_VALUES_FILE"
-cnoe_ref_impl: # Specific values for reference CNOE implementation to control extraObjects.
-  auto_mode: $([[ "${AUTO_MODE}" == "true" ]] && echo '"true"' || echo '"false"')
+cat << EOF > ${ARGOCD_DYNAMIC_VALUES_FILE}
+# Specific values for reference CNOE implementation to control extraObjects.
 global:
   domain: $([[ "${PATH_ROUTING}" == "true" ]] && echo "${DOMAIN_NAME}" || echo "argocd.${DOMAIN_NAME}")
 server:

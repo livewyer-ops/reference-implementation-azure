@@ -9,8 +9,6 @@ echo -e "\n${BOLD}${BLUE}🚀 Starting uninstallation process...${NC}"
 
 # Addons to be deleted
 ADDONS=(
-  crossplane-compositions
-  crossplane-upbound-providers
   crossplane
   argo-workflows
   backstage
@@ -19,10 +17,9 @@ ADDONS=(
   external-dns
   external-secrets
   ingress-nginx
-  aws-load-balancer-controller
 )
 
-# Remove addons-appset applicationset and corresponding appset-chart applicationset with orphan deletion policy. 
+# Remove addons-appset applicationset and corresponding appset-chart applicationset with orphan deletion policy.
 # The addons will be removed in specific order later.
 echo -e "${CYAN}🗑️  Deleting ${BOLD}addons-appset${NC} ${CYAN}ApplicationSet...${NC}"
 kubectl delete applicationsets.argoproj.io -n argocd addons-appset --cascade=orphan --kubeconfig $KUBECONFIG_FILE  > /dev/null 2>&1 || true
@@ -56,13 +53,13 @@ TIMEOUT=120 # 2 minutes timeout
 while [ $(kubectl get applications.argoproj.io -n argocd -l addonName=argocd --no-headers --kubeconfig $KUBECONFIG_FILE 2>/dev/null | wc -l) -ne 0 ]; do
   CURRENT_TIME=$(date +%s)
   ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
-  
+
   if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
     echo -e "${YELLOW}⚠️ Timeout reached. Patching ${BOLD}argocd${NC} ${YELLOW}applications to remove finalizers...${NC}"
     kubectl patch applications.argoproj.io -n argocd "argocd-$CLUSTER_NAME" --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' --kubeconfig $KUBECONFIG_FILE || true
     break
   fi
-  
+
   echo -e "${YELLOW}⏳ Still waiting for ${BOLD}argocd${NC} ${YELLOW}AppSet to be deleted... (${ELAPSED_TIME}s elapsed)${NC}"
   sleep 10
 done

@@ -12,7 +12,6 @@ cluster_name: "cnoe-ref-impl"
 # Azure Region of the AKS cluster and cnoe-reference-implementation-azure config secret
 location: eastus
 resource_group: cnoe
-subscription: </subscriptions/REPLACE_ME_xxxx-xxxx-xxxx>
 
 # AKS cluster OIDC issuer URL
 cluster_oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/

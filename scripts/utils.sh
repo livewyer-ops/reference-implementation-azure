@@ -16,11 +16,11 @@ get_tags_from_config() {
     yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' "$CONFIG_FILE"
 }
 
-# Generate kubeconfig for the EKS cluster
+# Generate kubeconfig for the AKS cluster
 get_kubeconfig() {
   export KUBECONFIG_FILE=$(mktemp)
   echo -e "${PURPLE}🔑 Generating temporary kubeconfig for cluster ${BOLD}${CLUSTER_NAME}${NC}...${NC}"
-  aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME --kubeconfig $KUBECONFIG_FILE > /dev/null 2>&1
+  az aks get-credentials --resource-group ${AZURE_RESOURCE_GROUP} --name ${CLUSTER_NAME} --file ${KUBECONFIG_FILE} --admin > /dev/null 2>&1
 }
 
 # Wait for all Argo CD applications to report healthy status
@@ -51,7 +51,7 @@ wait_for_apps(){
 }
 
 # Check if required binaries binaries exists
-clis=("aws" "kubectl"  "yq")
+clis=("az" "kubectl"  "yq" "jq")
 for cli in "${clis[@]}"; do
   if command -v "$cli" >/dev/null 2>&1 ; then
     continue
@@ -71,77 +71,23 @@ fi
 
 # Fetch config values
 export CLUSTER_NAME=$(yq '.cluster_name' "$CONFIG_FILE")
-export AWS_REGION=$(yq '.region' "$CONFIG_FILE")
+export AZURE_SUBSCRIPTION_ID=$(az account show -o json | jq -c '.id')
+export AZURE_LOCATION=$(yq '.location' "$CONFIG_FILE")
+export AZURE_RESOURCE_GROUP=$(yq '.resource_group' "$CONFIG_FILE")
 export DOMAIN_NAME=$(yq '.domain' "$CONFIG_FILE")
 export PATH_ROUTING=$(yq '.path_routing' "$CONFIG_FILE")
-export AUTO_MODE=$(yq '.auto_mode' "$CONFIG_FILE")
 export APPSET_ADDON_NAME=$([[ "${PATH_ROUTING}" == "true" ]] && echo "addons-appset-pr" || echo "addons-appset")
-export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # Header
 echo -e "${BOLD}${ORANGE}✨ ========================================== ✨${NC}"
-echo -e "${BOLD}${CYAN}📦       CNOE AWS Reference Implementation    📦${NC}"
+echo -e "${BOLD}${CYAN}📦       CNOE Azure Reference Implementation    📦${NC}"
 echo -e "${BOLD}${ORANGE}✨ ========================================== ✨${NC}\n"
 
 echo -e "${BOLD}${PURPLE}\n🎯 Targets:${NC}"
-echo -e "${CYAN}🔶 AWS account number:${NC} ${AWS_ACCOUNT_ID}"
-echo -e "${CYAN}🔶 AWS profile (if set):${NC} ${AWS_PROFILE:-None}"
-echo -e "${CYAN}🔶 AWS region:${NC} ${AWS_REGION}"
-echo -e "${CYAN}🔶 Kubernetes cluster:${NC} ${BOLD}$CLUSTER_NAME${NC}"
-
-if [ $PHASE = "create-cluster" ]; then
-  # Ask user for deployment tool
-  echo -e "\n${BOLD}${YELLOW}❓ Which tool would you like to use for cluster creation?${NC}"
-  echo -e "${CYAN}1) eksctl (YAML-based configuration)${NC}"
-  echo -e "${CYAN}2) terraform (Infrastructure as Code)${NC}"
-  read -p "Enter your choice (1 or 2): " tool_choice
-
-  case $tool_choice in
-      1)
-          export DEPLOYMENT_TOOL="eksctl"
-          echo -e "${GREEN}✅ Selected: eksctl${NC}"
-          ;;
-      2)
-          export DEPLOYMENT_TOOL="terraform"
-          echo -e "${GREEN}✅ Selected: terraform${NC}"
-          ;;
-      *)
-          echo -e "${RED}❌ Invalid choice. Please select 1 or 2.${NC}"
-          exit 1
-          ;;
-  esac
-
-  # Ask user for cluster type
-  echo -e "\n${BOLD}${YELLOW}❓ Which type of EKS cluster would you like to create?${NC}"
-  echo -e "${CYAN}1) Auto Mode cluster (Recommended for new users)${NC}"
-  echo -e "${CYAN}2) Non-Auto Mode cluster (Managed Node Groups)${NC}"
-  read -p "Enter your choice (1 or 2): " cluster_choice
-
-  case $cluster_choice in
-      1)
-          export CLUSTER_TYPE="auto"
-          export AUTO_MODE="true"
-          export EKSCTL_CONFIG_FILE_PATH="${REPO_ROOT}/cluster/eksctl/cluster-config-auto.yaml"
-          echo -e "${GREEN}✅ Selected: Auto Mode cluster${NC}"
-          ;;
-      2)
-          export CLUSTER_TYPE="standard"
-          export AUTO_MODE="false"
-          export EKSCTL_CONFIG_FILE_PATH="${REPO_ROOT}/cluster/eksctl/cluster-config.yaml"
-          echo -e "${GREEN}✅ Selected: Non-Auto Mode cluster${NC}"
-          ;;
-      *)
-          echo -e "${RED}❌ Invalid choice. Please select 1 or 2.${NC}"
-          exit 1
-          ;;
-  esac
-  echo -e "\n${BOLD}${GREEN}❓ Are you sure you want to create the EKS cluster?${NC}"
-  read -p '(yes/no): ' response
-  if [[ ! "$response" =~ ^[Yy][Ee][Ss]$ ]]; then
-      echo -e "${YELLOW}⚠️ Cluster creation cancelled.${NC}"
-      exit 0
-  fi
-fi
+echo -e "${CYAN}🔶 Azure Subscription ID:${NC} ${AZURE_SUBSCRIPTION_ID}"
+echo -e "${CYAN}🔶 Azure Location:${NC} ${AZURE_LOCATION}"
+echo -e "${CYAN}🔶 Azure Resource Group:${NC} ${AZURE_RESOURCE_GROUP}"
+echo -e "${CYAN}🔶 Kubernetes Cluster:${NC} ${BOLD}$CLUSTER_NAME${NC}"
 
 if [ $PHASE = "install" ]; then
   echo -e "${CYAN}📋 Configuration Details:${NC}"
