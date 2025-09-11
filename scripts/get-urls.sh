@@ -23,14 +23,14 @@ echo -e "${BOLD}${ORANGE}✨ ========================================== ✨${NC}
 echo -e "${BOLD}${PURPLE}🔗 URLs for accessing the platform:${NC}"
 echo -e "${YELLOW}----------------------------------------------------${NC}"
 
-if [ "$PATH_ROUTING" == "\"true\"" ] || [ "$PATH_ROUTING" == "true" ]; then
-  echo -e "${CYAN}🔶 Backstage:      ${BOLD}https://$DOMAIN${NC}"
-  echo -e "${CYAN}🔶 Argo CD:        ${BOLD}https://$DOMAIN/argocd${NC}"
-  echo -e "${CYAN}🔶 Argo Workflows: ${BOLD}https://$DOMAIN/argo-workflows${NC}"
+if [ "${PATH_ROUTING}" == "\"true\"" ] || [ "${PATH_ROUTING}" == "true" ]; then
+  echo -e "${CYAN}🔶 Backstage:      ${BOLD}https://${DOMAIN}${NC}"
+  echo -e "${CYAN}🔶 Argo CD:        ${BOLD}https://${DOMAIN}/argocd${NC}"
+  echo -e "${CYAN}🔶 Argo Workflows: ${BOLD}https://${DOMAIN}/argo-workflows${NC}"
 else
-  echo -e "${CYAN}🔶 Backstage:      ${BOLD}https://backstage.$DOMAIN${NC}"
-  echo -e "${CYAN}🔶 Argo CD:        ${BOLD}https://argocd.$DOMAIN${NC}"
-  echo -e "${CYAN}🔶 Argo Workflows: ${BOLD}https://argo-workflows.$DOMAIN${NC}"
+  echo -e "${CYAN}🔶 Backstage:      ${BOLD}https://backstage.${DOMAIN}${NC}"
+  echo -e "${CYAN}🔶 Argo CD:        ${BOLD}https://argocd.${DOMAIN}${NC}"
+  echo -e "${CYAN}🔶 Argo Workflows: ${BOLD}https://argo-workflows.${DOMAIN}${NC}"
 fi
 
 echo -e "${YELLOW}----------------------------------------------------${NC}"

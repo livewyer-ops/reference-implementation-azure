@@ -36,7 +36,7 @@ configs:
   cm:
     oidc.config: |
       name: Keycloak
-      issuer: https://$ISSUER_URL/realms/cnoe
+      issuer: https://${ISSUER_URL}/realms/cnoe
       clientID: argocd
       enablePKCEAuthentication: true
       requestedScopes:
@@ -53,39 +53,39 @@ echo -e "${BOLD}${GREEN}🔄 Installing Argo CD...${NC}"
 helm repo add argo "https://argoproj.github.io/argo-helm" > /dev/null
 helm repo update > /dev/null
 helm upgrade --install --wait argocd argo/argo-cd \
-  --namespace argocd --version $ARGOCD_CHART_VERSION \
+  --namespace argocd --version ${ARGOCD_CHART_VERSION} \
   --create-namespace \
-  --values "$ARGOCD_STATIC_VALUES_FILE" \
-  --values "$ARGOCD_DYNAMIC_VALUES_FILE" \
-  --kubeconfig $KUBECONFIG_FILE > /dev/null
+  --values "${ARGOCD_STATIC_VALUES_FILE}" \
+  --values "${ARGOCD_DYNAMIC_VALUES_FILE}" \
+  --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 echo -e "${YELLOW}⏳ Waiting for Argo CD to be healthy...${NC}"
-kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s --kubeconfig $KUBECONFIG_FILE > /dev/null
+kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 
 echo -e "${BOLD}${GREEN}🔄 Installing External Secrets...${NC}"
 helm repo add external-secrets "https://charts.external-secrets.io" > /dev/null
 helm repo update > /dev/null
 helm upgrade --install --wait external-secrets external-secrets/external-secrets \
-  --namespace external-secrets --version $EXTERNAL_SECRETS_CHART_VERSION \
+  --namespace external-secrets --version ${EXTERNAL_SECRETS_CHART_VERSION} \
   --create-namespace \
-  --values "$EXTERNAL_SECRETS_STATIC_VALUES_FILE" \
-  --kubeconfig $KUBECONFIG_FILE > /dev/null
+  --values "${EXTERNAL_SECRETS_STATIC_VALUES_FILE}" \
+  --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 echo -e "${YELLOW}⏳ Waiting for External Secrets to be healthy...${NC}"
-kubectl wait --for=condition=available deployment/external-secrets -n external-secrets --timeout=300s --kubeconfig $KUBECONFIG_FILE > /dev/null
+kubectl wait --for=condition=available deployment/external-secrets -n external-secrets --timeout=300s --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 
 echo -e "${BOLD}${GREEN}🔄 Applying custom manifests...${NC}"
 # sleep 60
-kubectl apply -f "$ARGOCD_CUSTOM_MANIFESTS_PATH" --kubeconfig $KUBECONFIG_FILE > /dev/null
-kubectl apply -f "$EXTERNAL_SECRETS_CUSTOM_MANIFESTS_PATH" --kubeconfig $KUBECONFIG_FILE > /dev/null
+kubectl apply -f ${ARGOCD_CUSTOM_MANIFESTS_PATH} --kubeconfig ${KUBECONFIG_FILE} > /dev/null
+kubectl apply -f ${EXTERNAL_SECRETS_CUSTOM_MANIFESTS_PATH} --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 echo -e "${BOLD}${GREEN}🔄 Installing Addons AppSet Argo CD application...${NC}"
 helm upgrade --install --wait addons-appset ${REPO_ROOT}/packages/appset-chart \
   --namespace argocd \
-  --values "$ADDONS_APPSET_STATIC_VALUES_FILE" \
-  --kubeconfig $KUBECONFIG_FILE > /dev/null
+  --values "${ADDONS_APPSET_STATIC_VALUES_FILE}" \
+  --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 # Wait for Argo CD applications to sync
 sleep 10
