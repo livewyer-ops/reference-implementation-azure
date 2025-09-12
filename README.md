@@ -123,18 +123,34 @@ Follow the following steps to get started.
 
    ```bash
    az aks create \
-    --name $(yq '.cluster_name' setups/config.yaml) \
-    --location $(yq '.region' setups/config.yaml) \
-    --resource-group $(yq '.resource_group' setups/config.yaml) \
-    --kubernetes-version ${AKS_VERSION:-1.31} \
-    --sku automatic \
-    --enable-oidc-issuer \
-    --enable-workload-identity \
-    --node-vm-size ${ASK_NODE_SIZE:-Standard_D4alds_v6}
+     --name $(yq '.cluster_name' config.yaml) \
+     --location $(yq '.location' config.yaml) \
+     --resource-group $(yq '.resource_group' config.yaml) \
+     --kubernetes-version ${AKS_VERSION:-1.33} \
+     --sku automatic \
+     --enable-oidc-issuer \
+     --enable-workload-identity \
+     --node-vm-size ${AKS_NODE_SIZE:-standard_d4alds_v6} && \
+   az aks disable-addons -a monitoring --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) && \
+   az aks update \
+     --name $(yq '.cluster_name' config.yaml) \
+     --resource-group $(yq '.resource_group' config.yaml) \
+     --disable-azure-monitor-metrics && \
+   az aks update \
+     --name $(yq '.cluster_name' config.yaml) \
+     --resource-group $(yq '.resource_group' config.yaml) \
+     --aad-admin-group-object-ids $(az ad group show -g aks-admin | yq '.id')
    ```
 
    ```bash
-   az aks get-credentials --name $(yq '.cluster_name' setups/config.yaml) --resource-group $(yq '.resource_group' setups/config.yaml)
+   az aks delete \
+   --name $(yq '.cluster_name' config.yaml) \
+   --resource-group $(yq '.resource_group' config.yaml) \
+   --yes
+   ```
+
+   ```bash
+   az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
    ```
 
 3. If you don't have a public registered Azure DNS zone, [register a Azure DNS domain](https://learn.microsoft.com/en-us/azure/dns/) (be sure to use Azure DNS Zone as the DNS service for the domain). We **strongly encourage creating a dedicated sub domain** for this. If you'd rather manage DNS yourself, you can set `enable_dns_management` in the config file.

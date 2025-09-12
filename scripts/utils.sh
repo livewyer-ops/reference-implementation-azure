@@ -20,7 +20,7 @@ get_tags_from_config() {
 get_kubeconfig() {
   export KUBECONFIG_FILE=$(mktemp)
   echo -e "${PURPLE}🔑 Generating temporary kubeconfig for cluster ${BOLD}${CLUSTER_NAME}${NC}...${NC}"
-  az aks get-credentials --resource-group ${AZURE_RESOURCE_GROUP} --name ${CLUSTER_NAME} --file ${KUBECONFIG_FILE} --admin > /dev/null 2>&1
+  az aks get-credentials --resource-group ${AZURE_RESOURCE_GROUP} --name ${CLUSTER_NAME} --file ${KUBECONFIG_FILE} > /dev/null 2>&1
 }
 
 # Wait for all Argo CD applications to report healthy status

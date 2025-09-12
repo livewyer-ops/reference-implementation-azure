@@ -10,6 +10,9 @@ server:
     tls: true
     annotations:
       argocd.argoproj.io/sync-wave: "20"
+redis:
+  livenessProbe:
+    enabled: true
 configs:
   cm:
     accounts.backstage: apiKey
