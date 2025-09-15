@@ -79,10 +79,10 @@ kubectl wait --for=condition=available deployment/external-secrets -n external-s
 echo -e "${BOLD}${GREEN}🔄 Applying custom manifests...${NC}"
 # sleep 60
 kubectl apply -f ${ARGOCD_CUSTOM_MANIFESTS_PATH} --kubeconfig ${KUBECONFIG_FILE} > /dev/null
-kubectl apply -f ${EXTERNAL_SECRETS_CUSTOM_MANIFESTS_PATH} --kubeconfig ${KUBECONFIG_FILE} > /dev/null
+# kubectl apply -f ${EXTERNAL_SECRETS_CUSTOM_MANIFESTS_PATH} --kubeconfig ${KUBECONFIG_FILE} > /dev/null
 
 echo -e "${BOLD}${GREEN}🔄 Installing Addons AppSet Argo CD application...${NC}"
-helm upgrade --install --wait addons-appset ${REPO_ROOT}/packages/appset-chart \
+helm upgrade --install --wait addons-appset ${REPO_ROOT}/packages/charts/appset \
   --namespace argocd \
   --values "${ADDONS_APPSET_STATIC_VALUES_FILE}" \
   --kubeconfig ${KUBECONFIG_FILE} > /dev/null

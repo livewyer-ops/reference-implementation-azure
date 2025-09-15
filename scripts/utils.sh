@@ -71,7 +71,7 @@ fi
 
 # Fetch config values
 export CLUSTER_NAME=$(yq '.cluster_name' "${CONFIG_FILE}")
-export AZURE_SUBSCRIPTION_ID=$(az account show -o json | jq -c '.id')
+export AZURE_SUBSCRIPTION_ID=$(az account show -o yaml | yq '.id')
 export AZURE_LOCATION=$(yq '.location' "${CONFIG_FILE}")
 export AZURE_RESOURCE_GROUP=$(yq '.resource_group' "${CONFIG_FILE}")
 export DOMAIN_NAME=$(yq '.domain' "${CONFIG_FILE}")

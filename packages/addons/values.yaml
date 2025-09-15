@@ -113,6 +113,9 @@ external-secrets:
       - key: environment
         operator: In
         values: ["control-plane-bootstrap", "control-plane"]
+  additionalResources:
+    - manifestPath: "manifests"
+      type: "manifests"
 
 cert-manager:
   enabled: true
