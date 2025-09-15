@@ -13,7 +13,7 @@ export ORANGE='\033[38;5;172m'
 
 # Extract tags from config file
 get_tags_from_config() {
-    yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' "${CONFIG_FILE}"
+  yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' "${CONFIG_FILE}"
 }
 
 # Generate kubeconfig for the AKS cluster
@@ -25,7 +25,6 @@ get_kubeconfig() {
 
 # Wait for all Argo CD applications to report healthy status
 wait_for_apps(){
-
   echo -e "${YELLOW}⏳ Waiting for addons-appset to be healthy...${NC}"
   kubectl wait --for=jsonpath=.status.health.status=Healthy  -n argocd applications/${APPSET_ADDON_NAME}-${CLUSTER_NAME} --timeout=15m --kubeconfig ${KUBECONFIG_FILE}
   echo -e "${GREEN}✅ addons-appset is now healthy!${NC}"
@@ -65,8 +64,8 @@ export CONFIG_FILE="${REPO_ROOT}/config.yaml"
 
 # Check if config file exists
 if [ ! -f "${CONFIG_FILE}" ]; then
-    echo -e "${RED}❌ File ${CONFIG_FILE} does not exist${NC}"
-    exit 1
+  echo -e "${RED}❌ File ${CONFIG_FILE} does not exist${NC}"
+  exit 1
 fi
 
 # Fetch config values
