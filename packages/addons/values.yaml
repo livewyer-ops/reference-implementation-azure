@@ -39,36 +39,6 @@ argocd:
         operator: In
         values: ["control-plane-bootstrap", "control-plane"]
 
-aws-load-balancer-controller:
-  enabled: false
-  # enableAckPodIdentity: true
-  namespace: kube-system
-  defaultVersion: "1.13.2"
-  chartRepository: "https://aws.github.io/eks-charts"
-  valuesObject:
-    serviceAccount:
-      name: "aws-load-balancer-controller"
-    # vpcId: '{{.metadata.annotations.aws_vpc_id}}'
-    clusterName: "{{ .metadata.labels.clusterName }}"
-  ignoreDifferences:
-    - kind: Secret
-      name: aws-load-balancer-tls
-      jsonPointers: [/data]
-    - group: admissionregistration.k8s.io
-      kind: MutatingWebhookConfiguration
-      jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
-    - group: admissionregistration.k8s.io
-      kind: ValidatingWebhookConfiguration
-      jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
-  selector:
-    matchExpressions:
-      - key: auto_mode
-        operator: In
-        values: ["false"]
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
 ingress-nginx:
   enabled: true
   chartName: ingress-nginx
@@ -237,59 +207,17 @@ crossplane:
   releaseName: crossplane
   defaultVersion: "2.0.2"
   chartRepository: "https://charts.crossplane.io/stable"
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-provider-aws:
-  enabled: false
-  chartName: crossplane-aws-upbound
-  namespace: crossplane-system
-  releaseName: crossplane-provider-aws
-  defaultVersion: "3.0.0"
-  chartRepository: "https://gitops-bridge-dev.github.io/gitops-bridge-helm-charts"
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-provider-azure:
-  enabled: true
-  chartName: crossplane-azure-upbound
-  namespace: crossplane-system
-  releaseName: crossplane-provider-azure
-  defaultVersion: "1.1.0"
-  chartRepository: "https://gitops-bridge-dev.github.io/gitops-bridge-helm-charts"
   additionalResources:
-    - manifestPath: "manifests"
+    - manifestPath: "manifests/providers"
       type: "manifests"
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-provider-kubernetes:
-  enabled: true
-  chartName: crossplane-kubernetes
-  namespace: crossplane-system
-  releaseName: crossplane-provider-kubernetes
-  defaultVersion: "1.2.0"
-  chartRepository: "https://gitops-bridge-dev.github.io/gitops-bridge-helm-charts"
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-compositions:
-  enabled: false
-  namespace: crossplane-system
-  type: manifest
-  path: packages/crossplane-compositions
+    - manifestPath: "manifests/clusterproviderconfig"
+      type: "manifests"
+    - manifestPath: "manifests/functions"
+      type: "manifests"
+    - manifestPath: "manifests/configurations"
+      type: "manifests"
+    - manifestPath: "manifests/xrs"
+      type: "manifests"
   selector:
     matchExpressions:
       - key: environment

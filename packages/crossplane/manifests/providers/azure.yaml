@@ -1,0 +1,19 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure
+spec:
+  package: xpkg.upbound.io/upbound/provider-family-azure:v2
+
+---
+apiVersion: azure.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: provider-azure
+      namespace: crossplane-system
+      key: credential
