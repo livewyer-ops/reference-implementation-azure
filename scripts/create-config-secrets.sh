@@ -76,4 +76,34 @@ TEMP_SECRET_FILE=$(mktemp)
 yq -o=json eval '.' "${CONFIG_FILE}" > "${TEMP_SECRET_FILE}"
 create_update_secret "config"
 
+# Create Crossplane cloud provider credentials
+CROSSPLANE_AZURE_CREDS="${PRIVATE_DIR}/credentials.json"
+CROSSPLANE_AZURE_SECRET="provider-azure"
+CROSSPLANE_AZURE_SECRET_KEY="credential"
+CROSSPLANE_NS="crossplane-system"
+
+echo -e "\n${PURPLE}🚀 Creating/updating Secret for ${BOLD}${CROSSPLANE_NS}/${CROSSPLANE_AZURE_SECRET}[${CROSSPLANE_AZURE_SECRET_KEY}]...${NC}"
+
+if [ ! -f ${CROSSPLANE_AZURE_CREDS} ]; then
+  echo -e "${RED}❌ No credentials.json found in ${PRIVATE_DIR}${NC}"
+  exit 1
+fi
+
+get_kubeconfig
+
+if [ $(kubectl get ns -o yaml --kubeconfig ${KUBECONFIG_FILE} | ns=${CROSSPLANE_NS} yq '[.items[] | select(.metadata.name==env(ns))] | length') -eq 0 ]; then
+  kubectl create ns ${CROSSPLANE_NS} --kubeconfig ${KUBECONFIG_FILE}
+fi
+
+if [ $(kubectl get secret -o yaml -n ${CROSSPLANE_NS} --kubeconfig ${KUBECONFIG_FILE} | secret=${CROSSPLANE_AZURE_SECRET} yq '[.items[] | select(.metadata.name==env(secret))] | length') -ne 0 ]; then
+  kubectl delete secret ${CROSSPLANE_AZURE_SECRET} --interactive=false -n ${CROSSPLANE_NS} --kubeconfig ${KUBECONFIG_FILE} 1>/dev/null
+fi
+
+if kubectl create secret generic ${CROSSPLANE_AZURE_SECRET} -n ${CROSSPLANE_NS} --from-file=${CROSSPLANE_AZURE_SECRET_KEY}=${CROSSPLANE_AZURE_CREDS} --kubeconfig ${KUBECONFIG_FILE} 1>/dev/null; then
+  echo -e "${GREEN}✅ Secret: '${BOLD}${CROSSPLANE_NS}/${CROSSPLANE_AZURE_SECRET}[${CROSSPLANE_AZURE_SECRET_KEY}]${NC}${GREEN}' created successfully!${NC}"
+else
+  echo -e "${RED}❌ Failed to create/update secret${NC}"
+  exit 1
+fi
+
 echo -e "\n${BOLD}${GREEN}🎉 Process completed successfully! 🎉${NC}"
