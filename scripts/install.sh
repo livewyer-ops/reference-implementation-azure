@@ -81,10 +81,21 @@ kubectl wait --for=condition=available deployment/crossplane -n crossplane-syste
 
 echo -e "${BOLD}${GREEN}🔄 Applying Crossplane custom manifests...${NC}"
 for dir in ${CROSSPLANE_CUSTOM_MANIFESTS_DIRS[@]}; do
-  for ns in $(yq '[.[].namespace | select(.!=null)] | .[]' ${CROSSPLANE_CUSTOM_MANIFESTS_PATH}/${dir}/*.yaml); do
-    if [ $(kubectl get ns -o yaml --kubeconfig ${KUBECONFIG_FILE} | ns=${ns} yq '[.items[] | select(.metadata.name==env(ns))] | length') -eq 0 ]; then
-      kubectl create ns $ns --kubeconfig ${KUBECONFIG_FILE} 2>&1 > /dev/null
-    fi
+  for file in ${CROSSPLANE_CUSTOM_MANIFESTS_PATH}/${dir}/*.yaml; do
+    for ns in $(yq '[.[].namespace | select(.!=null)] | .[]' ${file}); do
+      if [ $(kubectl get ns -o yaml --kubeconfig ${KUBECONFIG_FILE} | ns=${ns} yq '[.items[] | select(.metadata.name==env(ns))] | length') -eq 0 ]; then
+        kubectl create ns $ns --kubeconfig ${KUBECONFIG_FILE} 2>&1 > /dev/null
+      fi
+    done
+    for i in $(yq 'di' ${file}); do
+      crd_kind=$(i=${i} yq eval-all 'select(di==env(i)).kind | downcase' ${file})
+      crd_group=$(i=${i} yq eval-all 'select(di==env(i)).apiVersion | sub("/[a-z0-9]+$", "")' ${file})
+      while [ $(kubectl get crd -o yaml --kubeconfig ${KUBECONFIG_FILE} | crd_kind=${crd_kind} crd_group=${crd_group} yq '[.items[] | select(.spec.group==env(crd_group)) | select(.spec.names.singular==env(crd_kind))] | length') -eq 0 ]; do
+        sleep 5
+      done
+      crd=$(kubectl get crd -o yaml --kubeconfig ${KUBECONFIG_FILE} | crd_kind=${crd_kind} crd_group=${crd_group} yq '.items[] | select(.spec.group==env(crd_group)) | select(.spec.names.singular==env(crd_kind)) | [.spec.names.plural, .spec.group] | join(".")')
+      kubectl wait --for=condition=Established=true --for=condition=NamesAccepted=true crd/${crd} --kubeconfig ${KUBECONFIG_FILE} 2>&1 > /dev/null
+    done
   done
   kubectl apply -f ${CROSSPLANE_CUSTOM_MANIFESTS_PATH}/${dir} --kubeconfig ${KUBECONFIG_FILE}
   for pkg in $(kubectl get pkg -o name --kubeconfig ${KUBECONFIG_FILE}); do
