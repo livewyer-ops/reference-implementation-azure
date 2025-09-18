@@ -1,0 +1,25 @@
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+  - name: crossplane
+    url: https://charts.crossplane.io/stable
+
+releases:
+  - name: argocd
+    namespace: argocd
+    chart: argo/argo-cd
+    createNamespace: true
+    values:
+      - packages/argo-cd/values.yaml
+      - packages/argo-cd/values.yaml.gotmpl
+  - name: crossplane
+    namespace: crossplane-system
+    chart: crossplane/crossplane
+    createNamespace: true
+    values:
+      - packages/crossplane/values.yaml
+  - name: addons-appset
+    namespace: argocd
+    chart: packages/charts/appset
+    values:
+      - packages/bootstrap/values.yaml

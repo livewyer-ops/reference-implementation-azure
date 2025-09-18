@@ -127,10 +127,13 @@ Follow the following steps to get started.
      --location $(yq '.location' config.yaml) \
      --resource-group $(yq '.resource_group' config.yaml) \
      --kubernetes-version ${AKS_VERSION:-1.33} \
-     --sku automatic \
+     --sku base \
      --enable-oidc-issuer \
      --enable-workload-identity \
-     --node-vm-size ${AKS_NODE_SIZE:-standard_d4alds_v6} && \
+     --node-vm-size ${AKS_NODE_SIZE:-standard_d4alds_v6}
+   ```
+
+   ```bash
    az aks disable-addons -a monitoring --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) && \
    az aks update \
      --name $(yq '.cluster_name' config.yaml) \
@@ -143,14 +146,25 @@ Follow the following steps to get started.
    ```
 
    ```bash
+   kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io --force=true --interactive=false --now=true gatekeeper-validating-webhook-configuration
+   kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io --force=true --interactive=false --now=true gatekeeper-mutating-webhook-configuration
+   kubectl delete ns --force=true --interactive=false --now=true gatekeeper-system
+   kubectl api-resources -o json | jq -rc '.resources[] | select(.group != null) | select(.group | match(".gatekeeper.sh")) | .kind + .group' | xargs -I{} kubectl delete crd --force=true --interactive=false --now=true {}
+   ```
+
+   ```bash
    az aks delete \
-   --name $(yq '.cluster_name' config.yaml) \
-   --resource-group $(yq '.resource_group' config.yaml) \
-   --yes
+    --name $(yq '.cluster_name' config.yaml) \
+    --resource-group $(yq '.resource_group' config.yaml) \
+    --yes
    ```
 
    ```bash
    az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+   ```
+
+   ```bash
+   az aks show --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --query "oidcIssuerProfile.issuerUrl" -o tsv
    ```
 
 3. If you don't have a public registered Azure DNS zone, [register a Azure DNS domain](https://learn.microsoft.com/en-us/azure/dns/) (be sure to use Azure DNS Zone as the DNS service for the domain). We **strongly encourage creating a dedicated sub domain** for this. If you'd rather manage DNS yourself, you can set `enable_dns_management` in the config file.
