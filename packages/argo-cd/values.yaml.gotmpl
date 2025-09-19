@@ -69,5 +69,3 @@ extraObjects:
       githubWebhookSecret: {{ $config.github.webhookSecret }}
       {{ end -}}
       githubAppPrivateKey: "{{ $config.github.privateKey }}"
-  - {{ readFile "./manifests/appproject-cnoe.yaml" | toJson }}
-  - {{ readFile "./manifests/appproject-demo.yaml" | toJson }}

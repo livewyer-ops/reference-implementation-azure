@@ -1,51 +1,34 @@
-extraObjects:
-  - apiVersion: pkg.crossplane.io/v1beta1
-    kind: Function
-    metadata:
-      name: function-auto-ready
-    spec:
-      package: xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
-  - apiVersion: pkg.crossplane.io/v1beta1
-    kind: Function
-    metadata:
-      name: function-go-templating
-    spec:
-      package: xpkg.upbound.io/upbound/function-go-templating:v0.11.0
-  - apiVersion: pkg.crossplane.io/v1
-    kind: Provider
-    metadata:
-      name: provider-azure
-    spec:
-      package: xpkg.upbound.io/upbound/provider-family-azure:v2
-  - apiVersion: pkg.crossplane.io/v1
-    kind: Provider
-    metadata:
-      name: provider-kubernetes
-    spec:
-      package: xpkg.upbound.io/upbound/provider-kubernetes:v1
-  # - apiVersion: azure.m.upbound.io/v1beta1
-  #   kind: ClusterProviderConfig
-  #   metadata:
-  #     name: default
-  #     namespace: crossplane-system
-  #   spec:
-  #     credentials:
-  #       source: Secret
-  #       secretRef:
-  #         name: provider-azure
-  #         namespace: crossplane-system
-  #         key: credential
-  # - apiVersion: kubernetes.m.crossplane.io/v1alpha1
-  #   kind: ClusterProviderConfig
-  #   metadata:
-  #     name: default
-  #     namespace: crossplane-system
-  #   spec:
-  #     credentials:
-  #       source: InjectedIdentity
-  # - apiVersion: pkg.crossplane.io/v1
-  #   kind: Configuration
-  #   metadata:
-  #     name: configuration-azure-workload-identity
-  #   spec:
-  #     package: xpkg.upbound.io/livewyer-ops/crossplane-configuration-azure-workload-identity:v0.0.1
+# extraObjects:
+#   - apiVersion: pkg.crossplane.io/v1beta1
+#     kind: Function
+#     metadata:
+#       name: function-auto-ready
+#     spec:
+#       package: xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
+#   - apiVersion: pkg.crossplane.io/v1beta1
+#     kind: Function
+#     metadata:
+#       name: function-go-templating
+#     spec:
+#       package: xpkg.upbound.io/upbound/function-go-templating:v0.11.0
+#   - apiVersion: pkg.crossplane.io/v1
+#     kind: Provider
+#     metadata:
+#       name: provider-azure
+#     spec:
+#       package: xpkg.upbound.io/upbound/provider-family-azure:v2
+#   - apiVersion: pkg.crossplane.io/v1
+#     kind: Provider
+#     metadata:
+#       name: provider-kubernetes
+#     spec:
+#       package: xpkg.upbound.io/upbound/provider-kubernetes:v1
+
+# provider:
+#   packages:
+#     - xpkg.upbound.io/upbound/provider-family-azure:v2
+#     - xpkg.upbound.io/upbound/provider-kubernetes:v1
+# function:
+#   packages:
+#     - xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
+#     - xpkg.upbound.io/upbound/function-go-templating:v0.11.0

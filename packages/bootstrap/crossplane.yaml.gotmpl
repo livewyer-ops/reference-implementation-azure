@@ -1,0 +1,11 @@
+extraObjects:
+{{ $manifestDir := (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/crossplane/manifests") }}
+{{- range $index,$item := readDirEntries $manifestDir -}}
+  {{- if $item.IsDir -}}
+    {{- range $subindex,$subitem := readDirEntries (printf "%s/%s" $manifestDir $item.Name) -}}
+  - {{ readFile (printf "%s/%s/%s" $manifestDir $item.Name $subitem.Name) | toYaml }}
+    {{- end -}}
+  {{- else -}}
+  - {{ readFile (printf "%s/%s" $manifestDir $item.Name) | toYaml }}
+  {{- end -}}
+{{- end -}}

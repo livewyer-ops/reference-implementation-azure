@@ -1,25 +1,62 @@
+helmDefaults:
+  cleanupOnFail: true
+  createNamespace: true
+  wait: true
+
 repositories:
   - name: argo
     url: https://argoproj.github.io/argo-helm
   - name: crossplane
     url: https://charts.crossplane.io/stable
 
+helmfiles:
+  # - packages/bootstrap/install-base.helmfile
+  # - packages/bootstrap/install-config.helmfile
+  # - packages/bootstrap/install-cnoe.helmfile
+
 releases:
   - name: argocd
     namespace: argocd
     chart: argo/argo-cd
-    createNamespace: true
+    version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).argocd.defaultVersion }}'
     values:
       - packages/argo-cd/values.yaml
       - packages/argo-cd/values.yaml.gotmpl
-  - name: crossplane
-    namespace: crossplane-system
-    chart: crossplane/crossplane
-    createNamespace: true
+    postRenderer: "/bin/bash"
+    postRendererArgs: ["-c", "sleep 30"]
+  # - name: crossplane
+  #   namespace: crossplane-system
+  #   chart: crossplane/crossplane
+  #   version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).crossplane.defaultVersion }}'
+  #   values:
+  #     - packages/crossplane/values.yaml
+  #   postRenderer: "/bin/bash"
+  #   postRendererArgs: ["-c", "sleep 30"]
+  - name: cnoe-argocd-config
+    namespace: argocd
+    chart: packages/charts/extraObjects
     values:
-      - packages/crossplane/values.yaml
-  - name: addons-appset
+      - packages/bootstrap/argocd.yaml.gotmpl
+    # dependencies:
+    #   - chart: argo/argo-cd
+    #     version: ~8
+  # - name: cnoe-crossplane-addon
+  #   namespace: crossplane-system
+  #   chart: packages/charts/extraObjects
+  #   values:
+  #     - packages/bootstrap/crossplane.yaml.gotmpl
+  #   # dependencies:
+  #   #   - chart: crossplane/crossplane
+  #   #     version: "*"
+  - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
     values:
-      - packages/bootstrap/values.yaml
+      - packages/addons/values.yaml
+    # dependencies:
+    #   - chart: argo/argo-cd
+    #     version: "*"
+    #   - chart: crossplane/crossplane
+    #     version: "*"
+    #   - chart: packages/charts/extraObjects
+    #     version: "*"

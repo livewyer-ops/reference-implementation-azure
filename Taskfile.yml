@@ -1,0 +1,53 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  REPO_ROOT:
+    sh: git rev-parse --show-toplevel
+  # HELMFILES:
+  #   - packages/bootstrap/install-base.helmfile
+  #   - packages/bootstrap/install-config.helmfile
+  #   - packages/bootstrap/install-cnoe.helmfile
+
+tasks:
+  init:
+    cmds:
+      - helmfile init
+      - task: install:lint
+
+  install:
+    cmds:
+      - task: install:apply
+
+  install:lint:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile lint
+
+  install:build:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile build
+
+  install:apply:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile apply --debug
+
+  install:list:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile list
+
+  install:status:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile status
+
+  install:template:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile template
+
+  update:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile sync
+
+  uninstall:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile destroy

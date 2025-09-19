@@ -1,0 +1,17 @@
+releases:
+  - name: cnoe-argocd-config
+    namespace: argocd
+    chart: ../charts/extraObjects
+    values:
+      - argocd.yaml.gotmpl
+    # dependencies:
+    #   - chart: argo/argo-cd
+    #     version: ~8
+  - name: cnoe-crossplane-addon
+    namespace: crossplane-system
+    chart: ../charts/extraObjects
+    values:
+      - crossplane.yaml.gotmpl
+    # dependencies:
+    #   - chart: crossplane/crossplane
+    #     version: "*"

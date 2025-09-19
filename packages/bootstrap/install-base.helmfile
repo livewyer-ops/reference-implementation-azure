@@ -1,0 +1,18 @@
+releases:
+  - name: argocd
+    namespace: argocd
+    chart: argo/argo-cd
+    version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).argocd.defaultVersion }}'
+    values:
+      - ../argo-cd/values.yaml
+      - ../argo-cd/values.yaml.gotmpl
+    postRenderer: "/bin/bash"
+    postRendererArgs: ["-c", "sleep 30"]
+  - name: crossplane
+    namespace: crossplane-system
+    chart: crossplane/crossplane
+    version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).crossplane.defaultVersion }}'
+    values:
+      - ../crossplane/values.yaml
+    postRenderer: "/bin/bash"
+    postRendererArgs: ["-c", "sleep 30"]
