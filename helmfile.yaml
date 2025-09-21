@@ -1,7 +1,9 @@
 helmDefaults:
   cleanupOnFail: true
   createNamespace: true
+  # recreatePods: true
   wait: true
+  # waitForJobs: true
 
 repositories:
   - name: argo
@@ -22,8 +24,6 @@ releases:
     values:
       - packages/argo-cd/values.yaml
       - packages/argo-cd/values.yaml.gotmpl
-    postRenderer: "/bin/bash"
-    postRendererArgs: ["-c", "sleep 30"]
   # - name: crossplane
   #   namespace: crossplane-system
   #   chart: crossplane/crossplane
@@ -37,26 +37,26 @@ releases:
     chart: packages/charts/extraObjects
     values:
       - packages/bootstrap/argocd.yaml.gotmpl
-    # dependencies:
-    #   - chart: argo/argo-cd
-    #     version: ~8
+  #   dependencies:
+  #     - chart: argo/argo-cd
+  #       version: ~8
   # - name: cnoe-crossplane-addon
   #   namespace: crossplane-system
   #   chart: packages/charts/extraObjects
   #   values:
   #     - packages/bootstrap/crossplane.yaml.gotmpl
-  #   # dependencies:
-  #   #   - chart: crossplane/crossplane
-  #   #     version: "*"
+  #   dependencies:
+  #     - chart: crossplane/crossplane
+  #       version: "*"
   - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
     values:
       - packages/addons/values.yaml
-    # dependencies:
-    #   - chart: argo/argo-cd
-    #     version: "*"
-    #   - chart: crossplane/crossplane
-    #     version: "*"
-    #   - chart: packages/charts/extraObjects
-    #     version: "*"
+  #   dependencies:
+  #     - chart: argo/argo-cd
+  #       version: "*"
+  #     - chart: crossplane/crossplane
+  #       version: "*"
+  #     - chart: packages/charts/extraObjects
+  #       version: "*"

@@ -13,41 +13,45 @@ vars:
 tasks:
   init:
     cmds:
-      - helmfile init
-      - task: install:lint
-
+      - task: helmfile:init
+      - task: helmfile:lint
   install:
     cmds:
-      - task: install:apply
-
-  install:lint:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile lint
-
-  install:build:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile build
-
-  install:apply:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile apply --debug
-
-  install:list:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile list
-
-  install:status:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile status
-
-  install:template:
-    cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile template
-
+      - task: helmfile:apply
   update:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile sync
-
+      - task: helmfile:sync
   uninstall:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile destroy
+      - task: helmfile:destroy
+
+  helmfile:init:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile init {{.CLI_ARGS}}
+  helmfile:lint:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile lint {{.CLI_ARGS}}
+  helmfile:build:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile build {{.CLI_ARGS}}
+  helmfile:apply:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile apply {{.CLI_ARGS}}
+  helmfile:list:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile list {{.CLI_ARGS}}
+  helmfile:status:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile status {{.CLI_ARGS}}
+  helmfile:template:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile template {{.CLI_ARGS}}
+  helmfile:deps:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile deps {{.CLI_ARGS}}
+  helmfile:sync:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile sync {{.CLI_ARGS}}
+  helmfile:destroy:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile destroy {{.CLI_ARGS}}
