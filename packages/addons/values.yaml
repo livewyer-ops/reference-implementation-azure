@@ -45,7 +45,15 @@ crossplane:
   defaultVersion: "2.0.2"
   chartRepository: "https://charts.crossplane.io/stable"
   additionalResources:
-    - manifestPath: "manifests"
+    - manifestPath: "manifests/providers"
+      type: "manifests"
+    - manifestPath: "manifests/functions"
+      type: "manifests"
+    - manifestPath: "manifests/clusterproviderconfig"
+      type: "manifests"
+    - manifestPath: "manifests/configurations"
+      type: "manifests"
+    - manifestPath: "manifests/xrs"
       type: "manifests"
   selector:
     matchExpressions:
