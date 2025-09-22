@@ -35,10 +35,11 @@ extraObjects:
       name: cnoe
       labels:
         argocd.argoproj.io/secret-type: cluster
+        environment: "control-plane"
       annotations:
-        repoURL: {{ $config.repo.url }}
-        repoRevision: {{ $config.repo.revision }}
-        repoBasepath: {{ $config.repo.basepath }}
+        addonsRepoURL: {{ $config.repo.url }}
+        addonsRepoRevision: {{ $config.repo.revision }}
+        addonsRepoBasepath: {{ $config.repo.basepath }}
         location: {{ $config.location }}
         resourceGroup: {{ $config.resource_group }}
         clusterName: {{ $config.cluster_name }}
@@ -68,4 +69,5 @@ extraObjects:
       {{ if $config.github.webhookSecret }}
       githubWebhookSecret: {{ $config.github.webhookSecret }}
       {{ end -}}
-      githubAppPrivateKey: "{{ $config.github.privateKey }}"
+      githubAppPrivateKey: |
+        {{ $config.github.privateKey | nindent 8 }}

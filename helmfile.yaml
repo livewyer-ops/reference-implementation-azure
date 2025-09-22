@@ -30,33 +30,27 @@ releases:
   #   version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).crossplane.defaultVersion }}'
   #   values:
   #     - packages/crossplane/values.yaml
-  #   postRenderer: "/bin/bash"
-  #   postRendererArgs: ["-c", "sleep 30"]
   - name: cnoe-argocd-config
     namespace: argocd
     chart: packages/charts/extraObjects
     values:
       - packages/bootstrap/argocd.yaml.gotmpl
-  #   dependencies:
-  #     - chart: argo/argo-cd
-  #       version: ~8
+    disableValidationOnInstall: true
+    needs:
+      - argocd/argocd
   # - name: cnoe-crossplane-addon
   #   namespace: crossplane-system
   #   chart: packages/charts/extraObjects
   #   values:
   #     - packages/bootstrap/crossplane.yaml.gotmpl
-  #   dependencies:
-  #     - chart: crossplane/crossplane
-  #       version: "*"
+  #   needs:
+  #     - crossplane
   - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
     values:
       - packages/addons/values.yaml
-  #   dependencies:
-  #     - chart: argo/argo-cd
-  #       version: "*"
-  #     - chart: crossplane/crossplane
-  #       version: "*"
-  #     - chart: packages/charts/extraObjects
-  #       version: "*"
+    disableValidationOnInstall: true
+    needs:
+      - argocd/argocd
+      - argocd/cnoe-argocd-config
