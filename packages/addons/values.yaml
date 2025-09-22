@@ -82,8 +82,10 @@ external-dns:
   chartRepository: https://kubernetes-sigs.github.io/external-dns
   defaultVersion: "1.16.1"
   valuesObject:
-    zoneIdFilters:
-      - "{{ .metadata.annotations.route53_hosted_zone_id }}"
+    provider:
+      name: azure
+    domainFilters:
+      - "{{ .metadata.annotations.domain }}"
   selector:
     matchExpressions:
       - key: environment
@@ -166,7 +168,7 @@ backstage:
         catalog:
           locations:
             - type: url
-              target: "{{ .metadata.annotations.addons_repo_url }}/blob/{{ .metadata.annotations.addons_repo_revision }}/templates/backstage/catalog-info.yaml"
+              target: "{{ .metadata.annotations.addonsRepoURL }}/blob/{{ .metadata.annotations.addonsRepoRevision }}/templates/backstage/catalog-info.yaml"
       extraEnvVars:
         - name: BACKSTAGE_FRONTEND_URL
           value: 'https://{{ if eq .metadata.annotations.pathRouting "false" }}backstage.{{ .metadata.annotations.domain }}{{ else }}{{ .metadata.annotations.domain }}{{ end }}'
