@@ -5,10 +5,6 @@ version: "3"
 vars:
   REPO_ROOT:
     sh: git rev-parse --show-toplevel
-  # HELMFILES:
-  #   - packages/bootstrap/install-base.helmfile
-  #   - packages/bootstrap/install-config.helmfile
-  #   - packages/bootstrap/install-cnoe.helmfile
 
 tasks:
   init:

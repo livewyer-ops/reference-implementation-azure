@@ -1,20 +1,13 @@
 helmDefaults:
   cleanupOnFail: true
   createNamespace: true
-  # recreatePods: true
   wait: true
-  # waitForJobs: true
 
 repositories:
   - name: argo
     url: https://argoproj.github.io/argo-helm
   - name: crossplane
     url: https://charts.crossplane.io/stable
-
-helmfiles:
-  # - packages/bootstrap/install-base.helmfile
-  # - packages/bootstrap/install-config.helmfile
-  # - packages/bootstrap/install-cnoe.helmfile
 
 releases:
   - name: argocd
