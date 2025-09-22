@@ -10,6 +10,7 @@ repo:
 # The name of the AKS cluster you are installing the reference implementation on.
 cluster_name: "cnoe-ref-impl"
 # Azure Region of the AKS cluster and cnoe-reference-implementation-azure config secret
+subscription: <REPLACE_ME_00000000-0000-0000-0000-000000000000>
 location: eastus
 resource_group: cnoe-idp
 

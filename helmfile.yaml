@@ -73,16 +73,6 @@ releases:
     needs:
       - crossplane-system/crossplane
       - crossplane-system/cnoe-crossplane-addon-providers
-  - name: cnoe-crossplane-addon-xrs
-    namespace: crossplane-system
-    chart: packages/charts/raw
-    values:
-      - packages/bootstrap/crossplane-xrs.yaml.gotmpl
-    disableValidationOnInstall: true
-    needs:
-      - crossplane-system/crossplane
-      - crossplane-system/cnoe-crossplane-addon-configurations
-      - crossplane-system/cnoe-crossplane-addon-clusterproviderconfig
   - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
@@ -91,4 +81,5 @@ releases:
     disableValidationOnInstall: true
     needs:
       - argocd/cnoe-argocd-config
-      - crossplane-system/cnoe-crossplane-addon-xrs
+      - crossplane-system/cnoe-crossplane-addon-configurations
+      - crossplane-system/cnoe-crossplane-addon-clusterproviderconfig

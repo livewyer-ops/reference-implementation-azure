@@ -5,12 +5,12 @@ metadata:
   namespace: external-dns
 spec:
   forProvider:
-    location: "{{ .location }}"
-    oidcIssuerURL: "{{ .clusterOIDCIssuerURL }}"
-    resourceGroupName: "{{ .resourceGroup }}"
+    location: "{{ .metadata.annotations.location }}"
+    oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+    resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
     roleAssignments:
       - roleDefinitionName: DNS Zone Contributor
-        scope: "{{ .subscription }}"
+        scope: "{{ .metadata.annotations.resourceGroup }}"
       - roleDefinitionName: Reader
-        scope: "{{ .subscription }}"
+        scope: "{{ .metadata.annotations.resourceGroup }}"
     serviceAccountName: external-dns
