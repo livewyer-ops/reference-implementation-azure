@@ -4,10 +4,7 @@ releases:
   chart: ../charts/appset
   values:
     - ../addons/values.yaml
-  # dependencies:
-  #   - chart: argo/argo-cd
-  #     version: "*"
-  #   - chart: crossplane/crossplane
-  #     version: "*"
-  #   - chart: packages/charts/extraObjects
-  #     version: "*"
+  disableValidationOnInstall: true
+  needs:
+    - argocd/cnoe-argocd-config
+    - crossplane-system/cnoe-crossplane-addon

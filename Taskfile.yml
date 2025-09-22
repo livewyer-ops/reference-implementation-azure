@@ -32,6 +32,9 @@ tasks:
   helmfile:lint:
     cmds:
       - REPO_ROOT="{{.REPO_ROOT}}" helmfile lint {{.CLI_ARGS}}
+  helmfile:diff:
+    cmds:
+      - REPO_ROOT="{{.REPO_ROOT}}" helmfile diff {{.CLI_ARGS}}
   helmfile:build:
     cmds:
       - REPO_ROOT="{{.REPO_ROOT}}" helmfile build {{.CLI_ARGS}}

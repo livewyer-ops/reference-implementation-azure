@@ -1,4 +1,4 @@
-{{ range .Values.extraObjects }}
+{{- range $.Values.templates }}
 ---
 {{ if typeIs "string" . }}
     {{- tpl . $ }}

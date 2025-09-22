@@ -1,5 +1,1 @@
-extraObjects:
-{{ $manifestDir := (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/argo-cd/manifests") }}
-{{- range $index,$item := readDirEntries $manifestDir -}}
-  - {{ readFile (printf "%s/%s" $manifestDir $item.Name) | toYaml }}
-{{- end -}}
+{{ include "readManifest" (dict "PATH" "packages/argo-cd/manifests") }}

@@ -1,6 +1,6 @@
 apiVersion: v2
-name: extraObjects
-description: A Helm chart to deploy extra Kubernetes objects
+name: raw
+description: A Helm chart to deploy Kubernetes objects
 
 # A chart can be either an 'application' or a 'library' chart.
 #

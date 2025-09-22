@@ -24,27 +24,65 @@ releases:
     values:
       - packages/argo-cd/values.yaml
       - packages/argo-cd/values.yaml.gotmpl
-  # - name: crossplane
-  #   namespace: crossplane-system
-  #   chart: crossplane/crossplane
-  #   version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).crossplane.defaultVersion }}'
-  #   values:
-  #     - packages/crossplane/values.yaml
+  - name: crossplane
+    namespace: crossplane-system
+    chart: crossplane/crossplane
+    version: '{{ ((readFile (printf "%s/%s" (requiredEnv "REPO_ROOT") "packages/addons/values.yaml")) | fromYaml).crossplane.defaultVersion }}'
+    values:
+      - packages/crossplane/values.yaml
   - name: cnoe-argocd-config
     namespace: argocd
-    chart: packages/charts/extraObjects
+    chart: packages/charts/raw
     values:
       - packages/bootstrap/argocd.yaml.gotmpl
     disableValidationOnInstall: true
     needs:
       - argocd/argocd
-  # - name: cnoe-crossplane-addon
-  #   namespace: crossplane-system
-  #   chart: packages/charts/extraObjects
-  #   values:
-  #     - packages/bootstrap/crossplane.yaml.gotmpl
-  #   needs:
-  #     - crossplane
+  - name: cnoe-crossplane-addon-providers
+    namespace: crossplane-system
+    chart: packages/charts/raw
+    values:
+      - packages/bootstrap/crossplane-providers.yaml.gotmpl
+    disableValidationOnInstall: true
+    needs:
+      - crossplane-system/crossplane
+  - name: cnoe-crossplane-addon-functions
+    namespace: crossplane-system
+    chart: packages/charts/raw
+    values:
+      - packages/bootstrap/crossplane-functions.yaml.gotmpl
+    disableValidationOnInstall: true
+    needs:
+      - crossplane-system/crossplane
+  - name: cnoe-crossplane-addon-configurations
+    namespace: crossplane-system
+    chart: packages/charts/raw
+    values:
+      - packages/bootstrap/crossplane-configurations.yaml.gotmpl
+    disableValidationOnInstall: true
+    needs:
+      - crossplane-system/crossplane
+      - crossplane-system/cnoe-crossplane-addon-providers
+      - crossplane-system/cnoe-crossplane-addon-functions
+  - name: cnoe-crossplane-addon-clusterproviderconfig
+    namespace: crossplane-system
+    chart: packages/charts/raw
+    values:
+      - packages/bootstrap/crossplane-clusterproviderconfig.yaml.gotmpl
+    disableValidationOnInstall: true
+    needs:
+      - crossplane-system/crossplane
+      - crossplane-system/cnoe-crossplane-addon-providers
+  - name: cnoe-crossplane-addon-xrs
+    namespace: crossplane-system
+    chart: packages/charts/raw
+    values:
+      - packages/bootstrap/crossplane-xrs.yaml.gotmpl
+    disableValidationOnInstall: true
+    needs:
+      - crossplane-system/crossplane
+      - crossplane-system/cnoe-crossplane-addon-configurations
+      - crossplane-system/cnoe-crossplane-addon-clusterproviderconfig
   - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
@@ -52,5 +90,5 @@ releases:
       - packages/addons/values.yaml
     disableValidationOnInstall: true
     needs:
-      - argocd/argocd
       - argocd/cnoe-argocd-config
+      - crossplane-system/cnoe-crossplane-addon-xrs
