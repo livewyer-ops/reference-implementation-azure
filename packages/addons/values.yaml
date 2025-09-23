@@ -42,17 +42,122 @@ crossplane:
   chartName: crossplane
   namespace: crossplane-system
   releaseName: crossplane
-  defaultVersion: "2.0.2"
-  chartRepository: "https://charts.crossplane.io/stable"
-  additionalResources:
-    - manifestPath: "manifests/providers"
-      type: "manifests"
-    - manifestPath: "manifests/functions"
-      type: "manifests"
-    - manifestPath: "manifests/clusterproviderconfig"
-      type: "manifests"
-    - manifestPath: "manifests/configurations"
-      type: "manifests"
+  defaultVersion: "2.0.2-up.4"
+  chartRepository: "https://charts.upbound.io/stable"
+  # additionalResources:
+  #   - manifestPath: "manifests/providers"
+  #     type: "manifests"
+  #   - manifestPath: "manifests/functions"
+  #     type: "manifests"
+  #   - manifestPath: "manifests/clusterproviderconfig"
+  #     type: "manifests"
+  #   - manifestPath: "manifests/configurations"
+  #     type: "manifests"
+  selector:
+    matchExpressions:
+      - key: environment
+        operator: In
+        values: ["control-plane"]
+
+# crossplane-addons:
+#   enabled: true
+#   chartName: raw
+#   namespace: crossplane-system
+#   releaseName: crossplane-xrs
+#   defaultVersion: "0.1.0"
+#   chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
+#   path: packages/charts/raw
+#   valuesObject:
+#     templates:
+#       - apiVersion: pkg.crossplane.io/v1
+#         kind: Provider
+#         metadata:
+#           name: upbound-provider-azure
+#         spec:
+#           package: xpkg.upbound.io/upbound/provider-family-azure:v2.0.0
+#       - apiVersion: pkg.crossplane.io/v1
+#         kind: Provider
+#         metadata:
+#           name: upbound-provider-kubernetes
+#         spec:
+#           package: xpkg.upbound.io/upbound/provider-kubernetes:v1
+#       - apiVersion: pkg.crossplane.io/v1
+#         kind: Provider
+#         metadata:
+#           name: upbound-provider-azure-authorization
+#         spec:
+#           package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.0.0
+#       - apiVersion: pkg.crossplane.io/v1
+#         kind: Provider
+#         metadata:
+#           name: upbound-provider-azure-managedidentity
+#         spec:
+#           package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.0.0
+#       - apiVersion: pkg.crossplane.io/v1beta1
+#         kind: Function
+#         metadata:
+#           name: function-auto-ready
+#         spec:
+#           package: xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
+#       - apiVersion: pkg.crossplane.io/v1beta1
+#         kind: Function
+#         metadata:
+#           name: function-go-templating
+#         spec:
+#           package: xpkg.upbound.io/upbound/function-go-templating:v0.11.0
+#   selector:
+#     matchExpressions:
+#       - key: environment
+#         operator: In
+#         values: ["control-plane"]
+
+crossplane-config:
+  enabled: true
+  chartName: raw
+  namespace: crossplane-system
+  releaseName: crossplane-xrs
+  defaultVersion: "0.1.0"
+  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
+  path: packages/charts/raw
+  valuesObject:
+    templates:
+      - apiVersion: pkg.crossplane.io/v1beta1
+        kind: Function
+        metadata:
+          name: function-auto-ready
+        spec:
+          package: xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
+      - apiVersion: pkg.crossplane.io/v1beta1
+        kind: Function
+        metadata:
+          name: function-go-templating
+        spec:
+          package: xpkg.upbound.io/upbound/function-go-templating:v0.11.0
+      - apiVersion: azure.m.upbound.io/v1beta1
+        kind: ClusterProviderConfig
+        metadata:
+          name: default
+        spec:
+          credentials:
+            source: Secret
+            secretRef:
+              name: provider-azure
+              namespace: crossplane-system
+              key: credential
+      - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+        kind: ClusterProviderConfig
+        metadata:
+          name: default
+          namespace: crossplane-system
+        spec:
+          credentials:
+            source: InjectedIdentity
+      # - apiVersion: pkg.crossplane.io/v1
+      #   kind: Configuration
+      #   metadata:
+      #     name: configuration-azure-workload-identity
+      #   spec:
+      #     package: xpkg.upbound.io/livewyer-ops/crossplane-configuration-azure-workload-identity:v0.0.2
   selector:
     matchExpressions:
       - key: environment
