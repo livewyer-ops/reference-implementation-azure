@@ -53,8 +53,6 @@ crossplane:
       type: "manifests"
     - manifestPath: "manifests/configurations"
       type: "manifests"
-    # - manifestPath: "manifests/xrs"
-    #   type: "manifests"
   selector:
     matchExpressions:
       - key: environment
