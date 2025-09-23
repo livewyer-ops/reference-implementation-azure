@@ -2,56 +2,93 @@
 
 version: "3"
 
-vars:
+env:
+  KUBECONFIG:
+    sh: mktemp
   REPO_ROOT:
     sh: git rev-parse --show-toplevel
 
 tasks:
   init:
+    deps:
+      - update:kubeconfig
     cmds:
+      - defer: { task: cleanup }
       - task: helmfile:init
       - task: helmfile:lint
       - task: helmfile:build
+
   install:
+    deps:
+      - update:kubeconfig
     cmds:
+      - defer: { task: cleanup }
       - task: helmfile:apply
+      - task: update:secret
+
   update:
+    deps:
+      - update:kubeconfig
     cmds:
+      - defer: { task: cleanup }
       - task: helmfile:sync
-  uninstall:
+      - task: update:secret
+
+  update:secret:
+    preconditions:
+      - test -f private/azure-credentials.yaml
     cmds:
+      - kubectl apply -f private/azure-credentials.yaml
+
+  update:kubeconfig:
+    preconditions:
+      - test -f config.yaml
+    cmds:
+      - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --file "{{.KUBECONFIG}}"
+
+  cleanup:
+    internal: true
+    cmds:
+      - rm -f "{{.KUBECONFIG}}"
+
+  uninstall:
+    deps:
+      - update:kubeconfig
+    cmds:
+      - defer: { task: cleanup }
+      - task: update:kubeconfig
       - task: helmfile:destroy
 
   helmfile:init:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile init {{.CLI_ARGS}}
+      - helmfile init {{.CLI_ARGS}}
   helmfile:lint:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile lint {{.CLI_ARGS}}
+      - helmfile lint {{.CLI_ARGS}}
   helmfile:diff:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile diff {{.CLI_ARGS}}
+      - helmfile diff {{.CLI_ARGS}}
   helmfile:build:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile build {{.CLI_ARGS}}
+      - helmfile build {{.CLI_ARGS}}
   helmfile:apply:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile apply {{.CLI_ARGS}}
+      - helmfile apply {{.CLI_ARGS}}
   helmfile:list:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile list {{.CLI_ARGS}}
+      - helmfile list {{.CLI_ARGS}}
   helmfile:status:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile status {{.CLI_ARGS}}
+      - helmfile status {{.CLI_ARGS}}
   helmfile:template:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile template {{.CLI_ARGS}}
+      - helmfile template {{.CLI_ARGS}}
   helmfile:deps:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile deps {{.CLI_ARGS}}
+      - helmfile deps {{.CLI_ARGS}}
   helmfile:sync:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile sync {{.CLI_ARGS}}
+      - helmfile sync {{.CLI_ARGS}}
   helmfile:destroy:
     cmds:
-      - REPO_ROOT="{{.REPO_ROOT}}" helmfile destroy {{.CLI_ARGS}}
+      - helmfile destroy {{.CLI_ARGS}}
