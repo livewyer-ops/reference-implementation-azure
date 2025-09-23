@@ -53,8 +53,70 @@ crossplane:
       type: "manifests"
     - manifestPath: "manifests/configurations"
       type: "manifests"
-    - manifestPath: "manifests/xrs"
-      type: "manifests"
+    # - manifestPath: "manifests/xrs"
+    #   type: "manifests"
+  selector:
+    matchExpressions:
+      - key: environment
+        operator: In
+        values: ["control-plane"]
+
+crossplane-xrs:
+  enabled: true
+  chartName: raw
+  namespace: crossplane-system
+  releaseName: crossplane-xrs
+  defaultVersion: "0.1.0"
+  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
+  path: packages/charts/raw
+  valuesObject:
+    templates:
+      - apiVersion: azure.livewyer.io/v1alpha1
+        kind: WorkloadIdentity
+        metadata:
+          name: external-dns
+          namespace: external-dns
+        spec:
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            roleAssignments:
+              - roleDefinitionName: DNS Zone Contributor
+                scope: "{{ .metadata.annotations.resourceGroup }}"
+              - roleDefinitionName: Reader
+                scope: "{{ .metadata.annotations.resourceGroup }}"
+            serviceAccountName: external-dns
+      - apiVersion: azure.livewyer.io/v1alpha1
+        kind: WorkloadIdentity
+        metadata:
+          name: external-secrets
+          namespace: external-secrets
+        spec:
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            roleAssignments:
+              - roleDefinitionName: Key Vault Secrets User
+                scope: "{{ .metadata.annotations.subscription }}/resourcegroups/resource-{{ .metadata.annotations.resourceGroup }}"
+            serviceAccountName: external-secrets
+      - apiVersion: azure.livewyer.io/v1alpha1
+        kind: WorkloadIdentity
+        metadata:
+          name: keycloak
+          namespace: keycloak
+        spec:
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            roleAssignments:
+              - roleDefinitionName: Key Vault Secrets User
+                scope: "{{ .metadata.annotations.resourceGroup }}"
+              - roleDefinitionName: Key Vault Reader
+                scope: "{{ .metadata.annotations.resourceGroup }}"
+            serviceAccountName: external-secret-keycloak
   selector:
     matchExpressions:
       - key: environment
