@@ -19,7 +19,7 @@ generators:
                 {{- toYaml $selectors | nindent 16 }}
                 {{- end }}
                 {{- if $chartConfig.selectorMatchLabels }}
-                {{- toYaml $chartConfig.selectorMatchLabels | nindent 18 }}
+                {{- toYaml $chartConfig.selectorMatchLabels | nindent 16 }}
                 {{- end }}
               {{- if and $chartConfig.selector $useSelectors }}
                 {{- toYaml $chartConfig.selector | nindent 16 }}
@@ -29,6 +29,12 @@ generators:
       - git:
           repoURL: {{ $repoURLGit | squote }}
           revision: {{ $repoURLGitRevision | squote }}
+          {{- if $chartConfig.matrixPath }}
           files:
             - path: {{ $chartConfig.matrixPath | squote }}
+          {{- end }}
+          {{- if $chartConfig.matrixValues }}
+          values:
+            {{ $chartConfig.matrixValues | toYaml }}
+          {{- end }}
 {{- end }}

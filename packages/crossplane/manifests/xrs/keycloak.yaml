@@ -5,12 +5,12 @@ metadata:
   namespace: keycloak
 spec:
   forProvider:
-    location: "{{ .metadata.annotations.location }}"
-    oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
-    resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+    location: "{{ .location }}"
+    oidcIssuerURL: "{{ .clusterOIDCIssuerURL }}"
+    resourceGroupName: "{{ .resourceGroup }}"
     roleAssignments:
       - roleDefinitionName: Key Vault Secrets User
-        scope: "{{ .metadata.annotations.resourceGroup }}"
+        scope: "{{ .resourceGroup }}"
       - roleDefinitionName: Key Vault Reader
-        scope: "{{ .metadata.annotations.resourceGroup }}"
+        scope: "{{ .resourceGroup }}"
     serviceAccountName: external-secret-keycloak

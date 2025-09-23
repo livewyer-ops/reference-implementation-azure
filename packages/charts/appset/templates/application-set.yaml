@@ -159,13 +159,13 @@ spec:
             "chartConfig" $chartConfig
             "valueFiles" $valueFiles "values" $values) | nindent 12 }}
           {{- end }}
-          {{- if $chartConfig.additionalResources}}
+          {{- if $chartConfig.additionalResources }}
           {{- include "application-sets.additionalResources" (dict
             "chartName" ($chartConfig.chartName | default $nameNormalize)
             "valueFiles" $valueFiles
             "chartConfig" $chartConfig
             "values" $values) | nindent 6 }}
-          {{- end}}
+          {{- end }}
         {{- end }}
       destination:
         namespace: '{{ $chartConfig.namespace }}'

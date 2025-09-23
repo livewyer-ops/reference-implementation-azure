@@ -47,6 +47,7 @@ extraObjects:
         clusterOIDCIssuerURL: {{ $config.cluster_oidc_issuer_url }}
         domain: {{ $config.domain }}
         pathRouting: "{{ $config.path_routing }}"
+        environment: "control-plane"
     stringData:
       name: {{ $config.cluster_name }}
       server: https://kubernetes.default.svc
