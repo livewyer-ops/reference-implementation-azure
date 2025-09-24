@@ -8,6 +8,7 @@ env:
   KUBECONFIG:
     sh: mktemp
   REPO_ROOT: "{{.ROOT_DIR}}"
+  SECRET_NAME_PREFIX: cnoe-ref-impl
 
 tasks:
   init:
@@ -53,6 +54,35 @@ tasks:
       - defer: { task: cleanup }
       - kubectl apply -f packages/bootstrap/crossplane-ns.yaml
       - kubectl apply -f private/azure-credentials.yaml
+      - task: update:secret:azure
+
+  update:secret:azure:
+    preconditions:
+      - test -f config.yaml
+    vars:
+      TAGS:
+        sh: yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' config.yaml
+      SECRET_TEMP:
+        sh: mktemp
+    sources:
+      - config.yaml
+    generates:
+      - "{{.SECRET_TEMP}}"
+    cmds:
+      - task: if
+        vars:
+          CONDITION: $(az keyvault list -o yaml | SECRET_NAME_PREFIX=${SECRET_NAME_PREFIX} yq '.[] | [select(.name==env(SECRET_NAME_PREFIX))] | length') -eq 0
+          RUN: az keyvault create --resource-group $(yq '.resource_group' config.yaml) --tags {{.TAGS}} ${SECRET_NAME_PREFIX}
+      - defer: rm -f {{.SECRET_TEMP}}
+      - yq -o=json config.yaml > {{.SECRET_TEMP}}
+      - |
+        az keyvault secret set \
+          --name config \
+          --vault-name ${SECRET_NAME_PREFIX} \
+          --file {{.SECRET_TEMP}} \
+          --description "Secret for config of CNOE Azure Reference Implementation" \
+          --tags {{.TAGS}}
+          --output yaml | yq 'del(.value)'
 
   update:crossplane:
     deps:

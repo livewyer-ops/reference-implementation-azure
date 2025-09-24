@@ -39,3 +39,4 @@ terraform.rc
 
 /private/
 config.yaml
+.task/
