@@ -2,11 +2,12 @@
 
 version: "3"
 
+set: [errexit, nounset, pipefail]
+
 env:
   KUBECONFIG:
     sh: mktemp
-  REPO_ROOT:
-    sh: git rev-parse --show-toplevel
+  REPO_ROOT: "{{.ROOT_DIR}}"
 
 tasks:
   init:
@@ -23,22 +24,51 @@ tasks:
       - update:kubeconfig
     cmds:
       - defer: { task: cleanup }
-      - task: helmfile:apply
-      - task: update:secret
+      - task: helmfile
+      - task: update
 
-  update:
+  sync:
     deps:
       - update:kubeconfig
     cmds:
       - defer: { task: cleanup }
       - task: helmfile:sync
       - task: update:secret
+      - task: update:crossplane
+
+  update:
+    deps:
+      - update:kubeconfig
+    cmds:
+      - defer: { task: cleanup }
+      - task: update:secret
+      - task: update:crossplane
 
   update:secret:
+    deps:
+      - update:kubeconfig
     preconditions:
       - test -f private/azure-credentials.yaml
     cmds:
+      - defer: { task: cleanup }
+      - kubectl apply -f packages/bootstrap/crossplane-ns.yaml
       - kubectl apply -f private/azure-credentials.yaml
+
+  update:crossplane:
+    deps:
+      - update:kubeconfig
+    cmds:
+      - defer: { task: cleanup }
+      - task: wait
+        vars:
+          CONDITION: $(kubectl get provider.pkg.crossplane.io -o yaml | yq '[.items[] | select(.metadata.name=="*provider-kubernetes")] | length') -eq 0
+      - task: wait
+        vars:
+          CONDITION: $(kubectl -n crossplane-system get sa -o name | grep provider-kubernetes | wc -l) -eq 0
+      - task: if
+        vars:
+          CONDITION: $(kubectl get clusterrolebindings -o yaml | yq '[.items[] | select(.metadata.name=="provider-kubernetes-admin-binding")] | length') -eq 0
+          RUN: kubectl create clusterrolebinding provider-kubernetes-admin-binding --clusterrole cluster-admin --serviceaccount="$(kubectl -n crossplane-system get sa -o yaml | yq '.items[] | select(.metadata.name=="*provider-kubernetes*") | [.metadata.namespace, .metadata.name] | join(":")')"
 
   update:kubeconfig:
     preconditions:
@@ -51,6 +81,18 @@ tasks:
     cmds:
       - rm -f "{{.KUBECONFIG}}"
 
+  wait:
+    internal: true
+    env:
+      TIMEOUT: "{{default 300 .TIMEOUT}}"
+    cmds:
+      - while [[ {{.CONDITION}} ]] && [[ ${TIMEOUT} -gt 0 ]]; do sleep 5 && ((TIMEOUT-=5)); done
+
+  if:
+    internal: true
+    cmds:
+      - if [[ {{.CONDITION}} ]]; then {{.RUN}}; fi
+
   uninstall:
     deps:
       - update:kubeconfig
@@ -59,6 +101,10 @@ tasks:
       - task: update:kubeconfig
       - task: helmfile:destroy
 
+  helmfile:
+    cmds:
+      - task: helmfile:init
+      - task: helmfile:apply
   helmfile:init:
     cmds:
       - helmfile init {{.CLI_ARGS}}

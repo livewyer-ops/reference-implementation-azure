@@ -6,8 +6,6 @@ helmDefaults:
 repositories:
   - name: argo
     url: https://argoproj.github.io/argo-helm
-  - name: crossplane
-    url: https://charts.upbound.io/stable
 
 releases:
   - name: argocd
