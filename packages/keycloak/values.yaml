@@ -4,7 +4,7 @@ usePasswordFiles: false
 proxyHeaders: "forwarded"
 
 global:
-  defaultStorageClass: gp3
+  defaultStorageClass: default
 
 auth:
   adminUser: cnoe-admin

@@ -107,9 +107,7 @@ crossplane-xrs:
             resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
             roleAssignments:
               - roleDefinitionName: DNS Zone Contributor
-                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourcegroups/{{ .metadata.annotations.resourceGroup }}"
-              - roleDefinitionName: Reader
-                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourcegroups/{{ .metadata.annotations.resourceGroup }}"
+                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.Network/dnszones/{{ .metadata.annotations.domain }}"
             serviceAccountName: external-dns
       - apiVersion: azure.livewyer.io/v1alpha1
         kind: WorkloadIdentity
@@ -122,13 +120,13 @@ crossplane-xrs:
             oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
             resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
             roleAssignments:
-              - roleDefinitionName: Key Vault Secrets User
-                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourcegroups/{{ .metadata.annotations.resourceGroup }}"
-            serviceAccountName: external-secrets
+              - roleDefinitionName: Key Vault Administrator
+                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.KeyVault/vaults/{{ .metadata.annotations.keyvault }}"
+            serviceAccountName: workload-identity-sa
       - apiVersion: azure.livewyer.io/v1alpha1
         kind: WorkloadIdentity
         metadata:
-          name: keycloak-eso-store
+          name: keycloak
           namespace: keycloak
         spec:
           forProvider:
@@ -136,10 +134,8 @@ crossplane-xrs:
             oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
             resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
             roleAssignments:
-              - roleDefinitionName: Key Vault Secrets User
-                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourcegroups/{{ .metadata.annotations.resourceGroup }}"
-              - roleDefinitionName: Key Vault Reader
-                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourcegroups/{{ .metadata.annotations.resourceGroup }}"
+              - roleDefinitionName: Key Vault Administrator
+                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.KeyVault/vaults/{{ .metadata.annotations.keyvault }}"
             serviceAccountName: eso-store
   selector:
     matchExpressions:

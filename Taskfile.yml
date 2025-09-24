@@ -5,10 +5,10 @@ version: "3"
 set: [errexit, nounset, pipefail]
 
 env:
-  KUBECONFIG:
-    sh: mktemp
+  KUBECONFIG: "{{.ROOT_DIR}}/private/kubeconfig"
   REPO_ROOT: "{{.ROOT_DIR}}"
-  SECRET_NAME_PREFIX: cnoe-ref-impl
+  KEYVAULT_NAME:
+    sh: yq '.keyvault // "cnoe-ref-impl"' config.yaml
 
 tasks:
   init:
@@ -48,12 +48,39 @@ tasks:
     deps:
       - update:kubeconfig
     preconditions:
-      - test -f private/azure-credentials.yaml
+      - yq 'true' private/azure-credentials.yaml
     cmds:
       - defer: { task: cleanup }
       - kubectl apply -f packages/bootstrap/crossplane-ns.yaml
       - kubectl apply -f private/azure-credentials.yaml
       - task: update:secret:azure
+      - task: update:secret:external-dns
+
+  update:secret:external-dns:
+    deps:
+      - update:kubeconfig
+    preconditions:
+      - yq 'true' config.yaml
+    env:
+      SUBSCRIPTION_ID:
+        sh: yq '.subscription' config.yaml
+      RESOURCE_GROUP:
+        sh: yq '.resource_group' config.yaml
+      TENANT_ID:
+        sh: az identity show --resource-group ${RESOURCE_GROUP} --name external-dns --query "tenantId" --output tsv
+      CLIENT_ID:
+        sh: az identity show --resource-group ${RESOURCE_GROUP} --name external-dns --query "clientId" --output tsv
+    vars:
+      SECRET_TEMP:
+        sh: mktemp
+    sources:
+      - config.yaml
+    generates:
+      - "{{.SECRET_TEMP}}"
+    cmds:
+      - defer: rm -f {{.SECRET_TEMP}}
+      - yq --null-input -o=json '.aadClientId = env(CLIENT_ID) | .tenantId = strenv(TENANT_ID) | .subscriptionId = strenv(SUBSCRIPTION_ID) | .resourceGroup = strenv(RESOURCE_GROUP) | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
+      - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'={{.SECRET_TEMP}}
 
   update:secret:azure:
     preconditions:
@@ -63,6 +90,8 @@ tasks:
         sh: yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' config.yaml
       SECRET_TEMP:
         sh: mktemp
+      KUBELET_IDENTITY_OBJECT_ID:
+        sh: az aks show --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --query 'identityProfile.kubeletidentity.objectId' -o tsv
     sources:
       - config.yaml
     generates:
@@ -70,14 +99,14 @@ tasks:
     cmds:
       - task: if
         vars:
-          CONDITION: $(az keyvault list -o yaml | SECRET_NAME_PREFIX=${SECRET_NAME_PREFIX} yq '.[] | [select(.name==env(SECRET_NAME_PREFIX))] | length') -eq 0
-          RUN: az keyvault create --resource-group $(yq '.resource_group' config.yaml) --tags {{.TAGS}} ${SECRET_NAME_PREFIX}
+          CONDITION: $(az keyvault list -o yaml | KEYVAULT_NAME=${KEYVAULT_NAME} yq '.[] | [select(.name==env(KEYVAULT_NAME))] | length') -eq 0
+          RUN: az keyvault create --resource-group $(yq '.resource_group' config.yaml) --enable-rbac-authorization --tags {{.TAGS}} ${KEYVAULT_NAME}
       - defer: rm -f {{.SECRET_TEMP}}
       - yq -o=json config.yaml > {{.SECRET_TEMP}}
       - |
         az keyvault secret set \
           --name config \
-          --vault-name ${SECRET_NAME_PREFIX} \
+          --vault-name ${KEYVAULT_NAME} \
           --file {{.SECRET_TEMP}} \
           --description "Secret for config of CNOE Azure Reference Implementation" \
           --tags {{.TAGS}} \
@@ -103,7 +132,7 @@ tasks:
     preconditions:
       - yq 'true' config.yaml
     cmds:
-      - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+      - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --overwrite-existing
 
   cleanup:
     internal: true

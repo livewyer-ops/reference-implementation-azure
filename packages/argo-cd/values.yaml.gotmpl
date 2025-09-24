@@ -46,6 +46,7 @@ extraObjects:
         clusterName: {{ $config.cluster_name }}
         clusterOIDCIssuerURL: {{ $config.cluster_oidc_issuer_url }}
         domain: {{ $config.domain }}
+        keyvault: {{$config.keyvault}}
         pathRouting: "{{ $config.path_routing }}"
         environment: "control-plane"
     stringData:
