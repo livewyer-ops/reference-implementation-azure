@@ -1,5 +1,8 @@
-webui:
-  enabled: true
+customLabels:
+  azure.workload.identity/use: "true"
+
+# customAnnotations:
+#   azure.workload.identity/inject-proxy-sidecar: "true"
 
 provider:
   packages:
@@ -8,11 +11,14 @@ provider:
     - xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.0.0
     - xpkg.upbound.io/upbound/provider-kubernetes:v1
 
-configuration:
-  packages:
-    - xpkg.upbound.io/livewyer-ops/crossplane-configuration-azure-workload-identity:v0.0.2
-
 function:
   packages:
     - xpkg.upbound.io/upbound/function-auto-ready:v0.5.0
     - xpkg.upbound.io/upbound/function-go-templating:v0.11.0
+
+configuration:
+  packages:
+    - xpkg.upbound.io/livewyer-ops/crossplane-configuration-azure-workload-identity:v0.0.2
+
+webui:
+  enabled: true

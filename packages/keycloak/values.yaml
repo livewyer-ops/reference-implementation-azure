@@ -4,7 +4,7 @@ usePasswordFiles: false
 proxyHeaders: "forwarded"
 
 global:
-  defaultStorageClass: gp3
+  defaultStorageClass: default
 
 auth:
   adminUser: cnoe-admin
@@ -19,6 +19,7 @@ ingress:
   servicePort: http
   annotations:
     argocd.argoproj.io/sync-wave: "20"
+    external-dns.alpha.kubernetes.io/ttl: "60"
   tls: false
 
 postgresql:

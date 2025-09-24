@@ -7,7 +7,7 @@ server:
   ingress:
     annotations:
       {{ if not $config.path_routing -}}
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+      cert-manager.io/cluster-issuer: letsencrypt-{{ $config.letsencrypt_env }}
       {{ end -}}
     path: {{ ternary "/argocd" "/" $config.path_routing }}
 
@@ -46,8 +46,12 @@ extraObjects:
         clusterName: {{ $config.cluster_name }}
         clusterOIDCIssuerURL: {{ $config.cluster_oidc_issuer_url }}
         domain: {{ $config.domain }}
+        keyvault: {{$config.keyvault}}
         pathRouting: "{{ $config.path_routing }}"
         environment: "control-plane"
+        crossplaneClientId: "{{ $config.crossplane_workload_identity.clientId }}"
+        crossplaneTenantId: "{{ $config.crossplane_workload_identity.tenantId }}"
+        letsencryptEnv: "{{ $config.letsencrypt_env }}"
     stringData:
       name: {{ $config.cluster_name }}
       server: https://kubernetes.default.svc
