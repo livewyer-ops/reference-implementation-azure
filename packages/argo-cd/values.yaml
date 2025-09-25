@@ -8,6 +8,7 @@ server:
     tls: true
     annotations:
       argocd.argoproj.io/sync-wave: "20"
+      external-dns.alpha.kubernetes.io/ttl: "60"
 redis:
   livenessProbe:
     enabled: true

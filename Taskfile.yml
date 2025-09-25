@@ -149,9 +149,9 @@ tasks:
   wait:
     internal: true
     env:
-      TIMEOUT: "{{default 300 .TIMEOUT}}"
+      WAIT_TIMEOUT: "{{default 300 .TIMEOUT}}"
     cmds:
-      - while [[ {{.CONDITION}} ]] && [[ ${TIMEOUT} -gt 0 ]]; do sleep 5 && ((TIMEOUT-=5)); done
+      - while [[ {{.CONDITION}} ]] && [[ ${WAIT_TIMEOUT} -gt 0 ]]; do sleep 5 && ((WAIT_TIMEOUT-=5)); done && exit 0 || exit 1
 
   if:
     internal: true
@@ -164,7 +164,16 @@ tasks:
     cmds:
       - defer: { task: cleanup }
       - task: update:kubeconfig
+      - kubectl delete workloadidentities.azure.livewyer.io -A --all --interactive=false --now
+      - task: wait
+        vars:
+          CONDITION: true
+          TIMEOUT: 30
+      - kubectl delete pkg --all --interactive=false --now
       - task: helmfile:destroy
+      - kubectl delete sts -A -l app.kubernetes.io/name=postgresql --interactive=false --now
+      - kubectl delete pvc -A --all --interactive=false --
+    ignore_error: true
 
   test:aks:create:
     env:
@@ -183,7 +192,8 @@ tasks:
           --enable-oidc-issuer \
           --enable-workload-identity \
           --node-vm-size ${AKS_NODE_SIZE:-standard_d4alds_v6} \
-          --output none
+          --output none \
+          {{.CLI_ARGS}}
       - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --overwrite-existing
       - task: test:config:update
         vars:
@@ -200,7 +210,7 @@ tasks:
     preconditions:
       - yq 'true' config.yaml
     cmds:
-      - az aks delete --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --yes
+      - az aks delete --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --yes {{.CLI_ARGS}}
 
   helmfile:
     cmds:

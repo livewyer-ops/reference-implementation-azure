@@ -7,6 +7,8 @@ ingress:
   tls:
     enabled: true
     secretName: "backstage-server-tls"
+  annotations:
+    external-dns.alpha.kubernetes.io/ttl: "60"
 backstage:
   replicas: 1
   image:
@@ -44,7 +46,7 @@ backstage:
     backend:
       baseUrl: ${BACKSTAGE_FRONTEND_URL}
       csp:
-        connect-src: ['self', 'http:', 'https:']
+        connect-src: ["self", "http:", "https:"]
       cors:
         origin: ${BACKSTAGE_FRONTEND_URL}
         methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
@@ -64,25 +66,25 @@ backstage:
           apps:
             - $include: /app/config/github-integration.yaml
     proxy:
-      '/argo-workflows/api':
+      "/argo-workflows/api":
         target: ${ARGO_WORKFLOWS_URL}
         changeOrigin: true
         secure: true
         headers:
           Authorization:
             $env: ARGO_WORKFLOWS_AUTH_TOKEN
-      '/argocd/api':
+      "/argocd/api":
         target: ${ARGO_CD_URL}
         changeOrigin: true
         headers:
           Cookie:
             $env: ARGOCD_AUTH_TOKEN
     techdocs:
-      builder: 'local'
+      builder: "local"
       generator:
-        runIn: 'docker'
+        runIn: "docker"
       publisher:
-        type: 'local'
+        type: "local"
     auth:
       environment: development
       session:
@@ -93,7 +95,7 @@ backstage:
             metadataUrl: ${KEYCLOAK_NAME_METADATA}
             clientId: backstage
             clientSecret: ${BACKSTAGE_CLIENT_SECRET}
-            additionalScopes: 'openid profile email groups'
+            additionalScopes: "openid profile email groups"
             prompt: auto
     scaffolder:
     catalog:
@@ -111,7 +113,7 @@ backstage:
       username: admin
       password: ${ARGOCD_ADMIN_PASSWORD}
       appLocatorMethods:
-        - type: 'config'
+        - type: "config"
           instances:
             - name: in-cluster
               url: ${ARGO_CD_URL}
