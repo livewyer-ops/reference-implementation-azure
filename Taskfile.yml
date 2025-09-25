@@ -62,6 +62,8 @@ tasks:
           CONDITION: $(az identity show --resource-group cnoe-idp --name external-dns 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
 
+  # NOTE: THIS IS NOT IDEAL
+  # TODO: move this task to manifest or use other method to manage
   update:secret:external-dns:
     deps:
       - update:kubeconfig
@@ -163,16 +165,24 @@ tasks:
       - update:kubeconfig
     cmds:
       - defer: { task: cleanup }
-      - task: update:kubeconfig
       - kubectl delete workloadidentities.azure.livewyer.io -A --all --interactive=false --now
       - task: wait
         vars:
           CONDITION: true
           TIMEOUT: 30
       - kubectl delete pkg --all --interactive=false --now
+      - kubectl delete appset -A --all --interactive=false --now
+      - kubectl delete app -A --all --interactive=false --now --cascade=orphan
+      - task: wait
+        vars:
+          CONDITION: true
+          TIMEOUT: 30
       - task: helmfile:destroy
-      - kubectl delete sts -A -l app.kubernetes.io/name=postgresql --interactive=false --now
-      - kubectl delete pvc -A --all --interactive=false --
+      - cmd: kubectl delete ns {{.ITEM}} --interactive=false --now --cascade=orphan
+        for: { var: NS }
+    vars:
+      NS:
+        sh: yq 'to_entries[] | select(.value.enabled==true).value.namespace' packages/addons/values.yaml
     ignore_error: true
 
   test:aks:create:

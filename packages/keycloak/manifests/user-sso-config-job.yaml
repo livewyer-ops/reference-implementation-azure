@@ -251,7 +251,7 @@ spec:
           args:
             - |
               #! /bin/bash
-              set -ex -o pipefail
+              set -e -o pipefail
               apt -qq update && apt -qq install curl jq gettext-base -y
 
               # Define helper functions
