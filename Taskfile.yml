@@ -54,6 +54,12 @@ tasks:
       - kubectl apply -f packages/bootstrap/crossplane-ns.yaml
       - kubectl apply -f private/azure-credentials.yaml
       - task: update:secret:azure
+      - task: wait
+        vars:
+          CONDITION: $(kubectl get ns | grep external-dns | wc -l) -eq 0
+      - task: wait
+        vars:
+          CONDITION: $(az identity show --resource-group cnoe-idp --name external-dns 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
 
   update:secret:external-dns:
@@ -79,7 +85,7 @@ tasks:
       - "{{.SECRET_TEMP}}"
     cmds:
       - defer: rm -f {{.SECRET_TEMP}}
-      - yq --null-input -o=json '.aadClientId = env(CLIENT_ID) | .tenantId = strenv(TENANT_ID) | .subscriptionId = strenv(SUBSCRIPTION_ID) | .resourceGroup = strenv(RESOURCE_GROUP) | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
+      - cmd: yq --null-input -o=json '.aadClientId = env(CLIENT_ID) | .tenantId = strenv(TENANT_ID) | .subscriptionId = strenv(SUBSCRIPTION_ID) | .resourceGroup = strenv(RESOURCE_GROUP) | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
       - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'={{.SECRET_TEMP}}
 
   update:secret:azure:

@@ -181,9 +181,6 @@ external-secrets:
   chartName: external-secrets
   defaultVersion: "0.17.0"
   chartRepository: "https://charts.external-secrets.io"
-  additionalResources:
-    - manifestPath: "manifests"
-      type: "manifests"
   selector:
     matchExpressions:
       - key: environment
