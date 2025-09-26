@@ -65,10 +65,10 @@ tasks:
       - task: update:secret:azure
       - task: wait
         vars:
-          CONDITION: $(kubectl get ns | grep external-dns | wc -l) -eq 0
+          IF: $(kubectl get ns | grep external-dns | wc -l) -eq 0
       - task: wait
         vars:
-          CONDITION: $(az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --only-show-errors 2>/dev/null | wc -l) -eq 0
+          IF: $(az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --only-show-errors 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
 
   # NOTE: THIS IS NOT IDEAL
@@ -87,9 +87,9 @@ tasks:
       RESOURCE_GROUP:
         sh: yq '.resource_group' config.yaml
       TENANT_ID:
-        sh: az identity show --resource-group "{{RESOURCE_GROUP}}" --name external-dns --query "tenantId" --output tsv --only-show-errors
+        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --query "tenantId" --output tsv --only-show-errors
       CLIENT_ID:
-        sh: az identity show --resource-group "{{RESOURCE_GROUP}}" --name external-dns --query "clientId" --output tsv --only-show-errors
+        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --query "clientId" --output tsv --only-show-errors
       SECRET_TEMP:
         sh: mktemp
     sources:
@@ -98,7 +98,7 @@ tasks:
       - "{{.SECRET_TEMP}}"
     cmds:
       - defer: rm -f {{.SECRET_TEMP}}
-      - cmd: yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
+      - cmd: yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{.RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
       - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'={{.SECRET_TEMP}}
 
   update:secret:azure:
@@ -121,7 +121,7 @@ tasks:
     cmds:
       - task: if
         vars:
-          CONDITION: $(az keyvault list -o yaml --only-show-errors | KEYVAULT_NAME=${KEYVAULT_NAME} yq '.[] | [select(.name==env(KEYVAULT_NAME))] | length') -eq 0
+          IF: $(az keyvault list -o yaml --only-show-errors | KEYVAULT_NAME=${KEYVAULT_NAME} yq '.[] | [select(.name==env(KEYVAULT_NAME))] | length') -eq 0
           RUN: az keyvault create --resource-group $(yq '.resource_group' config.yaml) --enable-rbac-authorization --tags {{.TAGS}} ${KEYVAULT_NAME} --only-show-errors
       - defer: rm -f {{.SECRET_TEMP}}
       - yq -o=json config.yaml > {{.SECRET_TEMP}}
@@ -142,13 +142,13 @@ tasks:
       - defer: { task: cleanup }
       - task: wait
         vars:
-          CONDITION: $(kubectl get provider.pkg.crossplane.io -o yaml 2>/dev/null | yq '[.items[] | select(.metadata.name=="*provider-kubernetes")] | length') -eq 0
+          IF: $(kubectl get provider.pkg.crossplane.io -o yaml 2>/dev/null | yq '[.items[] | select(.metadata.name=="*provider-kubernetes")] | length') -eq 0
       - task: wait
         vars:
-          CONDITION: $(kubectl -n crossplane-system get sa -o name | grep provider-kubernetes | wc -l) -eq 0
+          IF: $(kubectl -n crossplane-system get sa -o name | grep provider-kubernetes | wc -l) -eq 0
       - task: if
         vars:
-          CONDITION: $(kubectl get clusterrolebindings -o yaml | yq '[.items[] | select(.metadata.name=="provider-kubernetes-admin-binding")] | length') -eq 0
+          IF: $(kubectl get clusterrolebindings -o yaml | yq '[.items[] | select(.metadata.name=="provider-kubernetes-admin-binding")] | length') -eq 0
           RUN: kubectl create clusterrolebinding provider-kubernetes-admin-binding --clusterrole cluster-admin --serviceaccount="$(kubectl -n crossplane-system get sa -o yaml | yq '.items[] | select(.metadata.name=="*provider-kubernetes*") | [.metadata.namespace, .metadata.name] | join(":")')"
 
   update:kubeconfig:
@@ -223,13 +223,13 @@ tasks:
     cmds:
       - task: if
         vars:
-          CONDITION: $(az identity list --resource-group "{{.RESOURCE_GROUP}}" --only-show-errors -o yaml | yq '[.[] | select(.name=="{{.IDENTITY_NAME}}")] | length') -eq 0
+          IF: $(az identity list --resource-group "{{.RESOURCE_GROUP}}" --only-show-errors -o yaml | yq '[.[] | select(.name=="{{.IDENTITY_NAME}}")] | length') -eq 0
           RUN: az identity create --name "{{.IDENTITY_NAME}}" --resource-group "{{.RESOURCE_GROUP}}" --only-show-errors --output none
       - task: if
         vars:
-          CONDITION: $(az identity federated-credential list --resource-group "{{.RESOURCE_GROUP}}" --identity-name "{{.IDENTITY_NAME}}" --only-show-errors -o yaml | yq 'length') -eq 0
+          IF: $(az identity federated-credential list --resource-group "{{.RESOURCE_GROUP}}" --identity-name "{{.IDENTITY_NAME}}" --only-show-errors -o yaml | yq 'length') -eq 0
           RUN: |-
-            az identity federated-credential create \
+            az identity federated-credential update \
               --name "{{.IDENTITY_NAME}}_fc" \
               --identity-name "{{.IDENTITY_NAME}}" \
               --resource-group "{{.RESOURCE_GROUP}}" \
@@ -240,7 +240,7 @@ tasks:
       - task: wait
         vars:
           TIMEOUT: 10
-          CONDITION: true
+          IF: true
       - |-
         az role assignment create \
           --assignee-object-id "$(az identity show --resource-group {{.RESOURCE_GROUP}} --name {{.IDENTITY_NAME}} --query 'principalId' -o tsv --only-show-errors)" \
@@ -280,12 +280,17 @@ tasks:
     env:
       WAIT_TIMEOUT: "{{default 300 .TIMEOUT}}"
     cmds:
-      - while [[ {{.CONDITION}} ]] && [[ ${WAIT_TIMEOUT} -gt 0 ]]; do sleep 5 && ((WAIT_TIMEOUT-=5)); done || exit 1
+      - while [[ {{.IF}} ]] && [[ ${WAIT_TIMEOUT} -gt 0 ]]; do sleep 5 && ((WAIT_TIMEOUT-=5)); done || exit 1
 
   if:
     internal: true
     cmds:
-      - if [[ {{.CONDITION}} ]]; then {{.RUN}}; fi || exit 1
+      - if [[ {{.IF}} ]]; then {{.RUN}}; fi || exit 1
+
+  ifelse:
+    internal: true
+    cmds:
+      - if [[ {{.IF}} ]]; then {{.IF_RUN}}; else {{.ELSE_RUN}}; fi || exit 1
 
   uninstall:
     deps:
@@ -295,7 +300,7 @@ tasks:
       - kubectl delete workloadidentities.azure.livewyer.io -A --all --interactive=false --now
       - task: wait
         vars:
-          CONDITION: true
+          IF: true
           TIMEOUT: 30
       - kubectl delete pkg --all --interactive=false --now
       - task: azure:creds:delete
@@ -303,7 +308,7 @@ tasks:
       - kubectl delete app -A --all --interactive=false --now --cascade=orphan
       - task: wait
         vars:
-          CONDITION: true
+          IF: true
           TIMEOUT: 30
       - task: helmfile:destroy
       - cmd: kubectl delete ns {{.ITEM}} --interactive=false --now --cascade=orphan
