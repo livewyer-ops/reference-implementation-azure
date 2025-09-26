@@ -49,6 +49,8 @@ extraObjects:
         keyvault: {{$config.keyvault}}
         pathRouting: "{{ $config.path_routing }}"
         environment: "control-plane"
+        crossplaneClientId: "{{ $config.crossplane_workload_identity.clientId }}"
+        crossplaneTenantId: "{{ $config.crossplane_workload_identity.tenantId }}"
     stringData:
       name: {{ $config.cluster_name }}
       server: https://kubernetes.default.svc

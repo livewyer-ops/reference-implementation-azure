@@ -44,6 +44,51 @@ crossplane:
   releaseName: crossplane
   defaultVersion: "2.0.2-up.4"
   chartRepository: "https://charts.upbound.io/stable"
+  valuesObject:
+    serviceAccount:
+      customAnnotations:
+        azure.workload.identity/client-id: "{{ .metadata.annotations.crossplaneClientId }}"
+        azure.workload.identity/tenant-id: "{{ .metadata.annotations.crossplaneTenantId }}"
+  selector:
+    matchExpressions:
+      - key: environment
+        operator: In
+        values: ["control-plane"]
+
+crossplane-addons:
+  enabled: true
+  chartName: raw
+  namespace: crossplane-system
+  releaseName: crossplane-addons
+  defaultVersion: "0.1.0"
+  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
+  path: packages/charts/raw
+  valuesObject:
+    templates:
+      - apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: upbound-provider-family-azure
+        spec:
+          package: xpkg.upbound.io/upbound/provider-family-azure:v2.0.0
+          runtimeConfigRef:
+            name: workload-identity
+      - apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: upbound-provider-azure-authorization
+        spec:
+          package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.0.0
+          runtimeConfigRef:
+            name: workload-identity
+      - apiVersion: pkg.crossplane.io/v1
+        kind: Provider
+        metadata:
+          name: upbound-provider-azure-managedidentity
+        spec:
+          package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.0.0
+          runtimeConfigRef:
+            name: workload-identity
   selector:
     matchExpressions:
       - key: environment
@@ -60,17 +105,35 @@ crossplane-config:
   path: packages/charts/raw
   valuesObject:
     templates:
+      - apiVersion: pkg.crossplane.io/v1beta1
+        kind: DeploymentRuntimeConfig
+        metadata:
+          name: workload-identity
+        spec:
+          deploymentTemplate:
+            spec:
+              selector: {}
+              template:
+                metadata:
+                  labels:
+                    azure.workload.identity/use: "true"
+                spec:
+                  serviceAccountName: crossplane
+                  containers:
+                    - name: package-runtime
+                      args:
+                        - --debug
       - apiVersion: azure.m.upbound.io/v1beta1
         kind: ClusterProviderConfig
         metadata:
           name: default
         spec:
           credentials:
-            source: Secret
-            secretRef:
-              name: provider-azure
-              namespace: crossplane-system
-              key: credentials
+            source: OIDCTokenFile # source: UserAssignedManagedIdentity
+          oidcTokenFilePath: /var/run/secrets/azure/tokens/azure-identity-token
+          subscriptionID: "{{ .metadata.annotations.subscription }}"
+          clientID: "{{ .metadata.annotations.crossplaneClientId }}"
+          tenantID: "{{ .metadata.annotations.crossplaneTenantId }}"
       - apiVersion: kubernetes.m.crossplane.io/v1alpha1
         kind: ClusterProviderConfig
         metadata:

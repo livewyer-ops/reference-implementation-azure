@@ -42,6 +42,9 @@ github:
     ...
     -----END RSA PRIVATE KEY-----
 
+crossplane_workload_identity:
+  clientId: <REPLACE_ME_00000000-0000-0000-0000-000000000000>
+  tenantId: <REPLACE_ME_00000000-0000-0000-0000-000000000000>
 
 # Tags for AWS resources
 tags:
