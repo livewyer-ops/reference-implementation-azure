@@ -49,120 +49,28 @@ crossplane:
       customAnnotations:
         azure.workload.identity/client-id: "{{ .metadata.annotations.crossplaneClientId }}"
         azure.workload.identity/tenant-id: "{{ .metadata.annotations.crossplaneTenantId }}"
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-addons:
-  enabled: true
-  chartName: raw
-  namespace: crossplane-system
-  releaseName: crossplane-addons
-  defaultVersion: "0.1.0"
-  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
-  path: packages/charts/raw
-  valuesObject:
-    templates:
-      - apiVersion: pkg.crossplane.io/v1
-        kind: Provider
-        metadata:
-          name: upbound-provider-family-azure
-        spec:
-          package: xpkg.upbound.io/upbound/provider-family-azure:v2.0.0
-          runtimeConfigRef:
-            name: workload-identity
-      - apiVersion: pkg.crossplane.io/v1
-        kind: Provider
-        metadata:
-          name: upbound-provider-azure-authorization
-        spec:
-          package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.0.0
-          runtimeConfigRef:
-            name: workload-identity
-      - apiVersion: pkg.crossplane.io/v1
-        kind: Provider
-        metadata:
-          name: upbound-provider-azure-managedidentity
-        spec:
-          package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.0.0
-          runtimeConfigRef:
-            name: workload-identity
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-config:
-  enabled: true
-  chartName: raw
-  namespace: crossplane-system
-  releaseName: crossplane-xrs
-  defaultVersion: "0.1.0"
-  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
-  path: packages/charts/raw
-  valuesObject:
-    templates:
-      - apiVersion: pkg.crossplane.io/v1beta1
-        kind: DeploymentRuntimeConfig
-        metadata:
-          name: workload-identity
-        spec:
-          deploymentTemplate:
-            spec:
-              selector: {}
-              template:
-                metadata:
-                  labels:
-                    azure.workload.identity/use: "true"
-                spec:
-                  serviceAccountName: crossplane
-                  containers:
-                    - name: package-runtime
-                      args:
-                        - --debug
+    extraObjects:
       - apiVersion: azure.m.upbound.io/v1beta1
         kind: ClusterProviderConfig
         metadata:
           name: default
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         spec:
           credentials:
-            source: OIDCTokenFile # source: UserAssignedManagedIdentity
+            source: OIDCTokenFile
+            # source: UserAssignedManagedIdentity
           oidcTokenFilePath: /var/run/secrets/azure/tokens/azure-identity-token
           subscriptionID: "{{ .metadata.annotations.subscription }}"
           clientID: "{{ .metadata.annotations.crossplaneClientId }}"
           tenantID: "{{ .metadata.annotations.crossplaneTenantId }}"
-      - apiVersion: kubernetes.m.crossplane.io/v1alpha1
-        kind: ClusterProviderConfig
-        metadata:
-          name: default
-          namespace: crossplane-system
-        spec:
-          credentials:
-            source: InjectedIdentity
-  selector:
-    matchExpressions:
-      - key: environment
-        operator: In
-        values: ["control-plane"]
-
-crossplane-xrs:
-  enabled: true
-  chartName: raw
-  namespace: crossplane-system
-  releaseName: crossplane-xrs
-  defaultVersion: "0.1.0"
-  chartRepository: "{{ .metadata.annotations.addonsRepoURL }}"
-  path: packages/charts/raw
-  valuesObject:
-    templates:
       - apiVersion: azure.livewyer.io/v1alpha1
         kind: WorkloadIdentity
         metadata:
           name: external-dns
           namespace: external-dns
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         spec:
           forProvider:
             location: "{{ .metadata.annotations.location }}"
@@ -177,6 +85,8 @@ crossplane-xrs:
         metadata:
           name: external-secrets
           namespace: external-secrets
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         spec:
           forProvider:
             location: "{{ .metadata.annotations.location }}"
@@ -191,6 +101,8 @@ crossplane-xrs:
         metadata:
           name: keycloak
           namespace: keycloak
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         spec:
           forProvider:
             location: "{{ .metadata.annotations.location }}"
@@ -200,6 +112,11 @@ crossplane-xrs:
               - roleDefinitionName: Key Vault Administrator
                 scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.KeyVault/vaults/{{ .metadata.annotations.keyvault }}"
             serviceAccountName: eso-store
+  additionalResources:
+    - manifestPath: "manifests"
+      type: "manifests"
+    - manifestPath: "kustomize"
+      type: "manifests"
   selector:
     matchExpressions:
       - key: environment

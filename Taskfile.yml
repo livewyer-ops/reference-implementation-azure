@@ -57,6 +57,9 @@ tasks:
     deps:
       - task: update:kubeconfig
         silent: true
+    vars:
+      RESOURCE_GROUP:
+        sh: yq '.resource_group' config.yaml
     cmds:
       - defer: { task: cleanup }
       - task: update:secret:azure
@@ -65,7 +68,7 @@ tasks:
           CONDITION: $(kubectl get ns | grep external-dns | wc -l) -eq 0
       - task: wait
         vars:
-          CONDITION: $(az identity show --resource-group cnoe-idp --name external-dns --only-show-errors 2>/dev/null | wc -l) -eq 0
+          CONDITION: $(az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --only-show-errors 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
 
   # NOTE: THIS IS NOT IDEAL
@@ -78,16 +81,15 @@ tasks:
         silent: true
     preconditions:
       - yq 'true' config.yaml
-    env:
+    vars:
       SUBSCRIPTION_ID:
         sh: yq '.subscription' config.yaml
       RESOURCE_GROUP:
         sh: yq '.resource_group' config.yaml
       TENANT_ID:
-        sh: az identity show --resource-group ${RESOURCE_GROUP} --name external-dns --query "tenantId" --output tsv --only-show-errors
+        sh: az identity show --resource-group "{{RESOURCE_GROUP}}" --name external-dns --query "tenantId" --output tsv --only-show-errors
       CLIENT_ID:
-        sh: az identity show --resource-group ${RESOURCE_GROUP} --name external-dns --query "clientId" --output tsv --only-show-errors
-    vars:
+        sh: az identity show --resource-group "{{RESOURCE_GROUP}}" --name external-dns --query "clientId" --output tsv --only-show-errors
       SECRET_TEMP:
         sh: mktemp
     sources:
@@ -96,7 +98,7 @@ tasks:
       - "{{.SECRET_TEMP}}"
     cmds:
       - defer: rm -f {{.SECRET_TEMP}}
-      - cmd: yq --null-input -o=json '.aadClientId = env(CLIENT_ID) | .tenantId = strenv(TENANT_ID) | .subscriptionId = strenv(SUBSCRIPTION_ID) | .resourceGroup = strenv(RESOURCE_GROUP) | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
+      - cmd: yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
       - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'={{.SECRET_TEMP}}
 
   update:secret:azure:
