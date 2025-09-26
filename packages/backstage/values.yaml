@@ -17,6 +17,13 @@ backstage:
     tag: 135c0cb26f3e004a27a11edb6a4779035aff9805
     pullPolicy: IfNotPresent
   command: ["node", "packages/backend"]
+  extraEnvVars:
+    - name: NODE_TLS_REJECT_UNAUTHORIZED
+      value: "0"
+    - name: HTTPS_PROXY_REJECT_UNAUTHORIZED
+      value: "false"
+    - name: BACKSTAGE_AUTH_SKIP_TLS_VERIFY
+      value: "true"
   extraEnvVarsSecrets:
     - backstage-env-vars
   extraVolumeMounts:
@@ -58,6 +65,12 @@ backstage:
           port: ${POSTGRES_PORT}
           user: ${POSTGRES_USER}
           password: ${POSTGRES_PASSWORD}
+          # Migration-specific settings
+          migrations:
+            tableName: "knex_migrations"
+            lockTableName: "knex_migrations_lock"
+            # Add timeout for migration lock
+            migrationTimeout: 120000 # 2 minutes
       cache:
         store: memory
     integrations:
@@ -97,6 +110,10 @@ backstage:
             clientSecret: ${BACKSTAGE_CLIENT_SECRET}
             additionalScopes: "openid profile email groups"
             prompt: auto
+            skipIssuerCheck: true
+            httpOptions:
+              rejectUnauthorized: false
+              checkServerIdentity: false
     scaffolder:
     catalog:
       import:

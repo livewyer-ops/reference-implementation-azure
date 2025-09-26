@@ -10,10 +10,9 @@ server:
     pathType: ImplementationSpecific
     annotations:
       external-dns.alpha.kubernetes.io/ttl: "60"
-    sso:
-      insecureSkipVerify: true
   sso:
     enabled: true
+    insecureSkipVerify: true
     clientId: # Required for sso configuration
       name: keycloak-oidc
       key: ARGO_WORKFLOWS_CLIENT_ID
