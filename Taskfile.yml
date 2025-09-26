@@ -29,6 +29,13 @@ tasks:
       - task: helmfile
       - task: update
 
+  diff:
+    deps:
+      - update:kubeconfig
+    cmds:
+      - defer: { task: cleanup }
+      - task: helmfile:diff
+
   sync:
     deps:
       - update:kubeconfig

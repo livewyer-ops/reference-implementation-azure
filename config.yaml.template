@@ -46,6 +46,8 @@ crossplane_workload_identity:
   clientId: <REPLACE_ME_00000000-0000-0000-0000-000000000000>
   tenantId: <REPLACE_ME_00000000-0000-0000-0000-000000000000>
 
+letsencrypt_env: prod
+
 # Tags for AWS resources
 tags:
   githubRepo: "github.com/livewyer-ops/reference-implementation-azure"

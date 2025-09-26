@@ -10,6 +10,8 @@ server:
     pathType: ImplementationSpecific
     annotations:
       external-dns.alpha.kubernetes.io/ttl: "60"
+    sso:
+      insecureSkipVerify: true
   sso:
     enabled: true
     clientId: # Required for sso configuration
