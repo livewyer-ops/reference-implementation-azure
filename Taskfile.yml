@@ -304,6 +304,7 @@ tasks:
       - update:kubeconfig
     cmds:
       - defer: { task: cleanup }
+      - kubectl delete ingress -A --all --interactive=false --now
       - kubectl delete workloadidentities.azure.livewyer.io -A --all --interactive=false --now
       - task: wait
         vars:
