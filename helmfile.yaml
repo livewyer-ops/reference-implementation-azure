@@ -15,14 +15,7 @@ releases:
     values:
       - packages/argo-cd/values.yaml
       - packages/argo-cd/values.yaml.gotmpl
-  - name: cnoe-argocd-config
-    namespace: argocd
-    chart: packages/charts/raw
-    values:
-      - packages/bootstrap/argocd.yaml.gotmpl
-    disableValidationOnInstall: true
-    needs:
-      - argocd/argocd
+    suppressDiff: true
   - name: cnoe-appset
     namespace: argocd
     chart: packages/charts/appset
@@ -30,5 +23,6 @@ releases:
       - packages/bootstrap/values.yaml
       - packages/addons/values.yaml
     disableValidationOnInstall: true
+    suppressDiff: true
     needs:
-      - argocd/cnoe-argocd-config
+      - argocd/argocd
