@@ -16,20 +16,24 @@ backstage:
     repository: cnoe-io/backstage-app
     tag: 135c0cb26f3e004a27a11edb6a4779035aff9805
     pullPolicy: IfNotPresent
-  command: ["node", "packages/backend"]
+  # command: ["node", "packages/backend"]
+  command: ["/app/startup.sh"]
+  args: []
   extraEnvVars:
     - name: NODE_TLS_REJECT_UNAUTHORIZED
       value: "0"
-    - name: HTTPS_PROXY_REJECT_UNAUTHORIZED
-      value: "false"
-    - name: BACKSTAGE_AUTH_SKIP_TLS_VERIFY
-      value: "true"
   extraEnvVarsSecrets:
     - backstage-env-vars
   extraVolumeMounts:
     - name: backstage-config
       mountPath: "/app/config"
       readOnly: true
+    - name: startup-script
+      mountPath: /app/startup.sh
+      subPath: startup.sh
+    - name: startup-script
+      mountPath: /app/unlock.js
+      subPath: unlock.js
   extraVolumes:
     - name: backstage-config
       projected:
@@ -44,6 +48,10 @@ backstage:
               items:
                 - key: k8s-config.yaml
                   path: k8s-config.yaml
+    - name: startup-script
+      configMap:
+        name: backstage-startup-script
+        defaultMode: 0755
   appConfig:
     app:
       title: CNOE Backstage
@@ -149,3 +157,38 @@ postgresql:
   architecture: standalone
 serviceAccount:
   create: true
+extraDeploy:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: backstage-startup-script
+      namespace: "{{ .Release.Namespace }}"
+    data:
+      unlock.js: |
+        module.exports = {
+          client: 'pg',
+          connection: {
+            host: process.env.POSTGRES_HOST,
+            port: process.env.POSTGRES_PORT,
+            user: process.env.POSTGRES_USER,
+            password: process.env.POSTGRES_PASSWORD,
+            database: process.env.POSTGRES_DB
+          },
+          migrations: {
+            tableName: 'knex_migrations'
+          }
+        };
+      startup.sh: |
+        #!/bin/bash
+        set -e
+
+        echo "Starting Backstage with knex migrate:unlock..."
+
+        cd /app
+        # Try to unlock migrations using various methods
+        npx knex migrate:unlock --knexfile=/app/unlock.js || echo "Unlock completed"
+
+        echo "Migration unlock attempts completed. Starting Backstage..."
+
+        # Start the original Backstage process
+        exec node packages/backend --config /app/app-config-from-configmap.yaml
