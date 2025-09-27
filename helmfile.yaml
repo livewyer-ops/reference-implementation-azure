@@ -27,6 +27,7 @@ releases:
     namespace: argocd
     chart: packages/charts/appset
     values:
+      - packages/bootstrap/values.yaml
       - packages/addons/values.yaml
     disableValidationOnInstall: true
     needs:
