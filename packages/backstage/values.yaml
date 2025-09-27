@@ -111,6 +111,7 @@ backstage:
       session:
         secret: "MW2sV-sIPngEl26vAzatV-6VqfsgAx4bPIz7PuE_2Lk="
       providers:
+        guest: {}
         keycloak-oidc:
           development:
             metadataUrl: ${KEYCLOAK_NAME_METADATA}

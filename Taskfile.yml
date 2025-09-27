@@ -109,7 +109,7 @@ tasks:
       - yq 'true' config.yaml
     vars:
       TAGS:
-        sh: yq eval '.tags | to_entries | map("Key=" + .key + ",Value=" + .value) | join(" ")' config.yaml
+        sh: yq eval '.tags | to_entries | map(.key + "=" + .value) | join(" ")' config.yaml
       SECRET_TEMP:
         sh: mktemp
       KUBELET_IDENTITY_OBJECT_ID:
