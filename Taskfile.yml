@@ -7,8 +7,22 @@ set: [errexit, nounset, pipefail]
 env:
   KUBECONFIG: "{{.ROOT_DIR}}/private/kubeconfig"
   REPO_ROOT: "{{.ROOT_DIR}}"
+
+vars:
+  CONFIG_FILE: "{{.ROOT_DIR}}/config.yaml"
+  SUBSCRIPTION_ID:
+    sh: yq '.subscription' "{{.CONFIG_FILE}}"
+  RESOURCE_GROUP:
+    sh: yq '.resource_group' "{{.CONFIG_FILE}}"
+  LOCATION:
+    sh: yq '.location' "{{.CONFIG_FILE}}"
   KEYVAULT_NAME:
-    sh: yq '.keyvault // "cnoe-ref-impl"' config.yaml
+    sh: yq '.keyvault // "cnoe-ref-impl"' "{{.CONFIG_FILE}}"
+  CLUSTER_NAME:
+    sh: yq '.cluster_name' "{{.CONFIG_FILE}}"
+  TAGS:
+    sh: yq eval '.tags | to_entries | map(.key + "=" + .value) | join(" ")' "{{.CONFIG_FILE}}"
+  AZ_CLI_OPTS: --only-show-errors --output none
 
 tasks:
   init:
@@ -57,9 +71,6 @@ tasks:
     deps:
       - task: update:kubeconfig
         silent: true
-    vars:
-      RESOURCE_GROUP:
-        sh: yq '.resource_group' config.yaml
     cmds:
       - defer: { task: cleanup }
       - task: update:secret:azure
@@ -68,7 +79,7 @@ tasks:
           IF: $(kubectl get ns | grep external-dns | wc -l) -eq 0
       - task: wait
         vars:
-          IF: $(az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --only-show-errors 2>/dev/null | wc -l) -eq 0
+          IF: $(az identity show {{.AZ_CLI_OPTS}} --name external-dns -o yaml 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
 
   # NOTE: THIS IS NOT IDEAL
@@ -80,59 +91,50 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     vars:
-      SUBSCRIPTION_ID:
-        sh: yq '.subscription' config.yaml
-      RESOURCE_GROUP:
-        sh: yq '.resource_group' config.yaml
       TENANT_ID:
-        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --query "tenantId" --output tsv --only-show-errors
+        sh: az identity show {{.AZ_CLI_OPTS}} --name external-dns --query "tenantId" --output tsv
       CLIENT_ID:
-        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name external-dns --query "clientId" --output tsv --only-show-errors
+        sh: az identity show {{.AZ_CLI_OPTS}} --name external-dns --query "clientId" --output tsv
       SECRET_TEMP:
         sh: mktemp
     sources:
-      - config.yaml
+      - "{{.CONFIG_FILE}}"
     generates:
       - "{{.SECRET_TEMP}}"
     cmds:
-      - defer: rm -f {{.SECRET_TEMP}}
-      - cmd: yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{.RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > {{.SECRET_TEMP}}
-      - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'={{.SECRET_TEMP}}
+      - defer: rm -f "{{.SECRET_TEMP}}"
+      - yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{.RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > "{{.SECRET_TEMP}}"
+      - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'="{{.SECRET_TEMP}}"
 
   update:secret:azure:
     deps:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     vars:
-      TAGS:
-        sh: yq eval '.tags | to_entries | map(.key + "=" + .value) | join(" ")' config.yaml
       SECRET_TEMP:
         sh: mktemp
-      KUBELET_IDENTITY_OBJECT_ID:
-        sh: az aks show --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --query 'identityProfile.kubeletidentity.objectId' -o tsv --only-show-errors
     sources:
-      - config.yaml
+      - "{{.CONFIG_FILE}}"
     generates:
       - "{{.SECRET_TEMP}}"
     cmds:
       - task: if
         vars:
-          IF: $(az keyvault list -o yaml --only-show-errors | KEYVAULT_NAME=${KEYVAULT_NAME} yq '.[] | [select(.name==env(KEYVAULT_NAME))] | length') -eq 0
-          RUN: az keyvault create --resource-group $(yq '.resource_group' config.yaml) --enable-rbac-authorization --tags {{.TAGS}} ${KEYVAULT_NAME} --only-show-errors
-      - defer: rm -f {{.SECRET_TEMP}}
-      - yq -o=json config.yaml > {{.SECRET_TEMP}}
+          IF: $(az keyvault list {{.AZ_CLI_OPTS}} -o yaml | yq '.[] | [select(.name=="{{.KEYVAULT_NAME}}")] | length') -eq 0
+          RUN: az keyvault create {{.AZ_CLI_OPTS}} --enable-rbac-authorization --tags {{.TAGS}} "{{.KEYVAULT_NAME}}"
+      - defer: rm -f "{{.SECRET_TEMP}}"
+      - yq -o=json "{{.CONFIG_FILE}}" > "{{.SECRET_TEMP}}"
       - |
-        az keyvault secret set \
+        az keyvault secret set {{.AZ_CLI_OPTS}} \
           --name config \
-          --vault-name ${KEYVAULT_NAME} \
-          --file {{.SECRET_TEMP}} \
+          --vault-name "{{.KEYVAULT_NAME}}" \
+          --file "{{.SECRET_TEMP}}" \
           --description "Secret for config of CNOE Azure Reference Implementation" \
-          --tags {{.TAGS}} \
-          --only-show-errors --output yaml | yq 'del(.value)'
+          --tags {{.TAGS}} --output yaml | yq 'del(.value)'
 
   update:crossplane:
     deps:
@@ -156,9 +158,9 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
-      - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --overwrite-existing --only-show-errors
+      - az aks get-credentials {{.AZ_CLI_OPTS}} --name "{{.CLUSTER_NAME}}" --overwrite-existing
 
   update:config:
     internal: true
@@ -167,19 +169,17 @@ tasks:
 
   azure:init:
     preconditions:
-      - yq 'true' config.yaml
-    vars:
-      SUBSCRIPTION_ID:
-        sh: yq '.subscription' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
-      - az account set --subscription "{{.SUBSCRIPTION_ID}}"
+      - az account set  --subscription "{{.SUBSCRIPTION_ID}}"
+      - az config set defaults.location="{{.LOCATION}}" defaults.group="{{.RESOURCE_GROUP}}" {{.AZ_CLI_OPTS}}
 
   azure:creds:
     deps:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
       - task: azure:creds:create
       - task: azure:creds:get
@@ -189,92 +189,74 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     vars:
       IDENTITY_NAME: crossplane
-      SUBSCRIPTION_ID:
-        sh: yq '.subscription' config.yaml
-      RESOURCE_GROUP:
-        sh: yq '.resource_group' config.yaml
       CLIENT_ID:
-        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name {{.IDENTITY_NAME}} --query "clientId" --output tsv --only-show-errors
+        sh: az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query "clientId" --output tsv
       TENANT_ID:
-        sh: az identity show --resource-group "{{.RESOURCE_GROUP}}" --name {{.IDENTITY_NAME}} --query "tenantId" --output tsv --only-show-errors
+        sh: az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query "tenantId" --output tsv
     cmds:
       - task: update:config
         vars:
-          RUN: yq -i e '.crossplane_workload_identity |= { .clientId |= "{{.CLIENT_ID}}" | .tenantId |= "{{.TENANT_ID}}"}' config.yaml
+          RUN: yq -i e '.crossplane_workload_identity |= { .clientId |= "{{.CLIENT_ID}}" | .tenantId |= "{{.TENANT_ID}}"}' "{{.CONFIG_FILE}}"
 
   azure:creds:create:
     deps:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     vars:
       IDENTITY_NAME: crossplane
       IDENTITY_NAMESPACE: crossplane-system
-      SUBSCRIPTION_ID:
-        sh: yq '.subscription' config.yaml
-      RESOURCE_GROUP:
-        sh: yq '.resource_group' config.yaml
       OIDC_ISSUER:
-        sh: yq '.cluster_oidc_issuer_url' config.yaml
+        sh: yq '.cluster_oidc_issuer_url' "{{.CONFIG_FILE}}"
     sources:
-      - config.yaml
+      - "{{.CONFIG_FILE}}"
     cmds:
       - task: if
         vars:
-          IF: $(az identity list --resource-group "{{.RESOURCE_GROUP}}" --only-show-errors -o yaml | yq '[.[] | select(.name=="{{.IDENTITY_NAME}}")] | length') -eq 0
-          RUN: az identity create --name "{{.IDENTITY_NAME}}" --resource-group "{{.RESOURCE_GROUP}}" --only-show-errors --output none
+          IF: $(az identity list {{.AZ_CLI_OPTS}} -o yaml | yq '[.[] | select(.name=="{{.IDENTITY_NAME}}")] | length') -eq 0
+          RUN: az identity create {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --output none
       - |
-        az identity federated-credential update \
+        az identity federated-credential update {{.AZ_CLI_OPTS}} \
           --name "{{.IDENTITY_NAME}}_fc" \
           --identity-name "{{.IDENTITY_NAME}}" \
-          --resource-group "{{.RESOURCE_GROUP}}" \
           --issuer "{{.OIDC_ISSUER}}" \
           --subject "system:serviceaccount:{{.IDENTITY_NAMESPACE}}:{{.IDENTITY_NAME}}" \
-          --audience "api://AzureADTokenExchange" \
-          --only-show-errors --output none 2>/dev/null || \
-        az identity federated-credential create \
+          --audience "api://AzureADTokenExchange" 2>/dev/null || \
+        az identity federated-credential create {{.AZ_CLI_OPTS}} \
           --name "{{.IDENTITY_NAME}}_fc" \
           --identity-name "{{.IDENTITY_NAME}}" \
-          --resource-group "{{.RESOURCE_GROUP}}" \
           --issuer "{{.OIDC_ISSUER}}" \
           --subject "system:serviceaccount:{{.IDENTITY_NAMESPACE}}:{{.IDENTITY_NAME}}" \
-          --audience "api://AzureADTokenExchange" \
-          --only-show-errors --output none
+          --audience "api://AzureADTokenExchange"
       - task: wait
         vars:
           TIMEOUT: 10
           IF: true
       - |-
-        az role assignment create \
-          --assignee-object-id "$(az identity show --resource-group {{.RESOURCE_GROUP}} --name {{.IDENTITY_NAME}} --query 'principalId' -o tsv --only-show-errors)" \
+        az role assignment create {{.AZ_CLI_OPTS}} \
+          --assignee-object-id "$(az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query 'principalId' -o tsv)" \
           --role "Owner" \
-          --scope "/subscriptions/{{.SUBSCRIPTION_ID}}/resourceGroups/{{.RESOURCE_GROUP}}" \
-          --only-show-errors \
-          --output none
+          --scope "/subscriptions/{{.SUBSCRIPTION_ID}}/resourceGroups/{{.RESOURCE_GROUP}}"
 
   azure:creds:delete:
     deps:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     vars:
       IDENTITY_NAME: crossplane
-      SUBSCRIPTION_ID:
-        sh: yq '.subscription' config.yaml
-      RESOURCE_GROUP:
-        sh: yq '.resource_group' config.yaml
       PRINCIPAL_ID:
-        sh: az identity show --resource-group {{.RESOURCE_GROUP}} --name {{.IDENTITY_NAME}} --query 'principalId' -o tsv --only-show-errors
+        sh: az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query 'principalId' -o tsv
       ROLE_ASSIGNMENT_ID:
-        sh: az role assignment list --resource-group {{.RESOURCE_GROUP}} --query "[?principalId=='{{.PRINCIPAL_ID}}'].id" -o tsv --only-show-errors
+        sh: az role assignment list {{.AZ_CLI_OPTS}} --query "[?principalId=='{{.PRINCIPAL_ID}}'].id" -o tsv
     cmds:
-      - az role assignment delete --ids {{.ROLE_ASSIGNMENT_ID}}
-      - az identity delete --name "{{.IDENTITY_NAME}}" --resource-group "{{.RESOURCE_GROUP}}" --subscription "{{.SUBSCRIPTION_ID}}" --only-show-errors --output none
+      - az role assignment delete {{.AZ_CLI_OPTS}} --ids "{{.ROLE_ASSIGNMENT_ID}}"
+      - az identity delete {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}"
 
   cleanup:
     internal: true
@@ -319,7 +301,7 @@ tasks:
           IF: true
           TIMEOUT: 30
       - task: helmfile:destroy
-      - cmd: kubectl delete ns {{.ITEM}} --interactive=false --now --cascade=orphan
+      - cmd: kubectl delete ns "{{.ITEM}}" --interactive=false --now --cascade=orphan
         for: { var: NS }
     vars:
       NS:
@@ -334,39 +316,37 @@ tasks:
       KUBECONFIG:
         sh: echo ${HOME}/.kube/config
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
       - |
         az aks create \
-          --name $(yq '.cluster_name' config.yaml) \
-          --location $(yq '.location' config.yaml) \
-          --resource-group $(yq '.resource_group' config.yaml) \
+          --name "{{.CLUSTER_NAME}}" \
           --kubernetes-version ${AKS_VERSION:-1.33} \
           --sku base \
           --enable-oidc-issuer \
           --enable-workload-identity \
           --node-vm-size ${AKS_NODE_SIZE:-standard_d4alds_v6} \
           --output none {{.CLI_ARGS}}
-      - az aks get-credentials --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --overwrite-existing --only-show-errors
+      - az aks get-credentials {{.AZ_CLI_OPTS}} --name "{{.CLUSTER_NAME}}" --overwrite-existing
       - task: test:config:update
         vars:
           OIDC_ISSUER:
-            sh: az aks show --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --query "oidcIssuerProfile.issuerUrl" -o tsv --only-show-errors
+            sh: az aks show --name "{{.CLUSTER_NAME}}" --query "oidcIssuerProfile.issuerUrl" -o tsv --only-show-errors
 
   test:config:update:
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
-      - yq -i e '.cluster_oidc_issuer_url |= "{{.OIDC_ISSUER}}"' config.yaml
+      - yq -i e '.cluster_oidc_issuer_url |= "{{.OIDC_ISSUER}}"' "{{.CONFIG_FILE}}"
 
   test:aks:destroy:
     deps:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' config.yaml
+      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
-      - az aks delete --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml) --yes {{.CLI_ARGS}}
+      - az aks delete --name "{{.CLUSTER_NAME}}" --yes {{.CLI_ARGS}}
 
   helmfile:
     cmds:
