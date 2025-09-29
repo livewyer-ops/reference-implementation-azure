@@ -76,14 +76,10 @@ tasks:
       - task: update:secret:azure
       - task: wait
         vars:
-          IF: $(kubectl get ns | grep external-dns | wc -l) -eq 0
-      - task: wait
-        vars:
           IF: $(az identity show {{.AZ_CLI_OPTS}} --name external-dns -o yaml 2>/dev/null | wc -l) -eq 0
       - task: update:secret:external-dns
+      - task: update:secret:azure
 
-  # NOTE: THIS IS NOT IDEAL
-  # TODO: move this task to manifest or use other method to manage
   update:secret:external-dns:
     deps:
       - task: update:kubeconfig
@@ -97,16 +93,10 @@ tasks:
         sh: az identity show {{.AZ_CLI_OPTS}} --name external-dns --query "tenantId" --output tsv
       CLIENT_ID:
         sh: az identity show {{.AZ_CLI_OPTS}} --name external-dns --query "clientId" --output tsv
-      SECRET_TEMP:
-        sh: mktemp
-    sources:
-      - "{{.CONFIG_FILE}}"
-    generates:
-      - "{{.SECRET_TEMP}}"
     cmds:
-      - defer: rm -f "{{.SECRET_TEMP}}"
-      - yq --null-input -o=json '.aadClientId = "{{.CLIENT_ID}}" | .tenantId = "{{.TENANT_ID}}" | .subscriptionId = "{{.SUBSCRIPTION_ID}}" | .resourceGroup = "{{.RESOURCE_GROUP}}" | .useWorkloadIdentityExtension = true' > "{{.SECRET_TEMP}}"
-      - kubectl create secret generic external-dns-azure --namespace external-dns --from-file='azure.json'="{{.SECRET_TEMP}}"
+      - task: update:config
+        vars:
+          RUN: yq -i e '.externaldns_workload_identity |= { .clientId |= "{{.CLIENT_ID}}" | .tenantId |= "{{.TENANT_ID}}"}' "{{.CONFIG_FILE}}"
 
   update:secret:azure:
     deps:
@@ -134,7 +124,8 @@ tasks:
           --vault-name "{{.KEYVAULT_NAME}}" \
           --file "{{.SECRET_TEMP}}" \
           --description "Secret for config of CNOE Azure Reference Implementation" \
-          --tags {{.TAGS}} --output yaml | yq 'del(.value)'
+          --tags {{.TAGS}} \
+          --query "{id: id, update: attributes.updated}" -o tsv
 
   update:crossplane:
     deps:
