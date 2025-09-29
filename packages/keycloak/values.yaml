@@ -1,9 +1,17 @@
+image:
+  repository: bitnamilegacy/keycloak
+keycloakConfigCli:
+  image:
+    repository: bitnamilegacy/keycloak-config-cli
+
 adminRealm: "cnoe"
 production: true
 usePasswordFiles: false
 proxyHeaders: "forwarded"
 
 global:
+  security:
+    allowInsecureImages: true
   defaultStorageClass: default
 
 auth:
@@ -24,6 +32,11 @@ ingress:
 
 postgresql:
   enabled: true
+  image:
+    repository: bitnamilegacy/postgresql
+  global:
+    security:
+      allowInsecureImages: true
   auth:
     username: keycloak
     database: keycloak
