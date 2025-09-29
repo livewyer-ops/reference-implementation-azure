@@ -1,56 +1,52 @@
+# Troubleshooting steps
 
-# Troubleshooting
-The installation process would take 30-35 minutes depending upon path_routing configuration. If the installation is not complete within this time, cancel the `install.sh` script execution and follow instruction in this document to troubleshoot the issues.]
-
-## Investigating Failures
-All adoons are deployed as ArgoCD application in a two-step process. 
-+ Bootstraping the EKS cluster with Argo CD and External Secret Operator using idpbuilder
-+ Creating rest of the addons through Argo CD on EKS cluster.
-
-Therefore, the best way to investigate and issue is to navigate to respective ArgoCD UI and review any errors in Argo CD application or in logs of the specific addon.
-
-First, switch context to `kind-localdev` cluster (idpbuilder) or EKS cluster and run following command to retrieve passwordof Argo CD.
+All applications are deployed as ArgoCD application. The best way is to navigate to ArgoCD UI and look at logs for each application.
 
 ```bash
-kubectl get secrets -n argocd argocd-initial-admin-secret -oyaml | yq '.data.password' | base64 -d
+# Get the admin ArgoCD password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# Port forward to 8081. 8080 could be in-use by the install / uninstall scripts.
+kubectl port-forward svc/argocd-server -n argocd 8081:80
 
-# OR
-
-idpbuilder get secrets -p argocd -o yaml
-``` 
-
-**To Access **`idpbuilder`** Argo CD:**
-
-In a web browser, Visit `https://cnoe.localtest.me:8443/argocd`.
-
-**To Access **`EKS Cluster`** Argo CD:**
-Verify if the Argo CD, Ingress NGINX and Cert-Manager addons on EKS cluster are healthy.
-
-```
-kubectl get applications -n argocd
+Go to http://localhost:8081
 ```
 
-If these addons are healthy then the EKS cluster Argo CD can be accessed directly in web browser using URL `https://argocd.[domain_name]` or `https://[domain_name]/argocd`
+# Common issues
 
-Otherwise, start a kubernetes port forward session for Argo CD:
+## Argo Workflows
 
-```
-kubectl port-forward -n argocd svc/argocd-server 8080:80
-```
-After this, visit `https://localhost:8080` or `https://localhost:8080/argocd` in a web browser.
+### Argo Workflows controller stuck in Crash Loop.
 
-
-## Common issues
-
-### DNS Records not updated after reinstallation
-External DNS does not delete DNS records during uninstallation. After reinstallation, External DNS might not be able to update the records with new values. in such cases, delete A, AAAA and TXT records from the Route 53 Hosted Zone and restart the external DNS pods. This will trigger a creation of new records. 
-
-### Certificate not issued by Cert Manager
-+ Describe the pending certificate challenge. If it shows message similar to:
+You may see error message like:
 
 ```
-Reason:      Waiting for HTTP-01 challenge propagation: failed to perform self check GET request 'http://DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c': Get "http://DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c": dial tcp: lookup argo.DOMAIN_NAME on 10.100.0.10:53: no such host
+Error: Get "https://<DOMAIN>/realms/cnoe/.well-known/openid-configuration": dial tcp: lookup <DOMAIN> on 10.100.0.10:53: no such host
 ```
-This is due to DNS propagation delay in the cluster. Once DNS entries are propagated (may take ~10 min), certificate should be issued.
 
-+ The reference implentation uses Lets Encrypt production API for requesting certificates. This API has certain limits on number of certificates issued. Due to these rate limits certificates may not be issued. Refer to [Lets Encrypt documentation](https://letsencrypt.org/docs/rate-limits/) for more information about this API throttling.
+This is due to DNS propagation delay in the cluster. Once DNS entries are propagated (may take ~10 min), pods should start running.
+
+## Certificates
+
+General steps are [outlined here](https://cert-manager.io/docs/troubleshooting/).
+
+### Certificates not issued
+
+You may see something like this
+
+```bash
+$ kubectl -n argo get certificate
+NAME                      READY   SECRET                    AGE
+argo-workflows-prod-tls   FALSE    argo-workflows-prod-tls   3m52s
+
+$ kubectl -n argo get challenge
+NAME                                                  STATE     DOMAIN                            AGE
+argo-workflows-prod-tls-qxfjq-1305584735-1533108683   pending   argo.<DOMAIN>   91s
+```
+
+If you describe the challenge, you may see something like this.
+
+```
+Reason:      Waiting for HTTP-01 challenge propagation: failed to perform self check GET request 'http://argo.DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c': Get "http://argo.DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c": dial tcp: lookup argo.DOMAIN_NAME on 10.100.0.10:53: no such host
+```
+
+This is due to DNS propagation delay in the cluster. Once DNS entries are propagated (may take ~10 min), certs should be issued.
