@@ -207,8 +207,7 @@ tasks:
           --audience "api://AzureADTokenExchange"
       - task: wait
         vars:
-          TIMEOUT: 10
-          IF: true
+          IF: $(az identity federated-credential list {{.AZ_CLI_OPTS}} --identity-name "{{.IDENTITY_NAME}}" 2>/dev/null && echo 0 || echo 1) -ne 0
       - |-
         az role assignment create {{.AZ_CLI_OPTS}} \
           --assignee-object-id "$(az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query 'principalId' -o tsv)" \
