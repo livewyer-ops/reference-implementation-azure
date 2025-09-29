@@ -64,7 +64,6 @@ tasks:
         silent: true
     cmds:
       - defer: { task: cleanup }
-      - task: update:crossplane
       - task: update:secret
 
   update:secret:
@@ -126,23 +125,6 @@ tasks:
           --description "Secret for config of CNOE Azure Reference Implementation" \
           --tags {{.TAGS}} \
           --query "{id: id, update: attributes.updated}" -o tsv
-
-  update:crossplane:
-    deps:
-      - task: update:kubeconfig
-        silent: true
-    cmds:
-      - defer: { task: cleanup }
-      - task: wait
-        vars:
-          IF: $(kubectl get provider.pkg.crossplane.io -o yaml 2>/dev/null | yq '[.items[] | select(.metadata.name=="*provider-kubernetes")] | length') -eq 0
-      - task: wait
-        vars:
-          IF: $(kubectl -n crossplane-system get sa -o name | grep provider-kubernetes | wc -l) -eq 0
-      - task: if
-        vars:
-          IF: $(kubectl get clusterrolebindings -o yaml | yq '[.items[] | select(.metadata.name=="provider-kubernetes-admin-binding")] | length') -eq 0
-          RUN: kubectl create clusterrolebinding provider-kubernetes-admin-binding --clusterrole cluster-admin --serviceaccount="$(kubectl -n crossplane-system get sa -o yaml | yq '.items[] | select(.metadata.name=="*provider-kubernetes*") | [.metadata.namespace, .metadata.name] | join(":")')"
 
   update:kubeconfig:
     deps:
