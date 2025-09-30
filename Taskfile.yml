@@ -212,7 +212,7 @@ tasks:
           --audience "api://AzureADTokenExchange"
       - task: wait
         vars:
-          IF: $(az identity federated-credential list {{.AZ_CLI_OPTS}} --identity-name "{{.IDENTITY_NAME}}" 2>/dev/null && echo 0 || echo 1) -ne 0
+          IF: $(az identity federated-credential list {{.AZ_CLI_OPTS}} --identity-name "{{.IDENTITY_NAME}}" 2>/dev/null && echo 0 || echo 1) -ne 0 || $(az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" -o yaml 2>/dev/null | yq '[.principalId] | length') -ne 1
       - |-
         az role assignment create {{.AZ_CLI_OPTS}} \
           --assignee-object-id "$(az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query 'principalId' -o tsv)" \
