@@ -96,6 +96,7 @@ tasks:
       - task: update:config
         vars:
           RUN: yq -i e '.externaldns_workload_identity |= { .clientId |= "{{.CLIENT_ID}}" | .tenantId |= "{{.TENANT_ID}}"}' "{{.CONFIG_FILE}}"
+        silent: true
 
   update:secret:azure:
     deps:
@@ -116,7 +117,9 @@ tasks:
           IF: $(az keyvault list {{.AZ_CLI_OPTS}} -o yaml | yq '.[] | [select(.name=="{{.KEYVAULT_NAME}}")] | length') -eq 0
           RUN: az keyvault create {{.AZ_CLI_OPTS}} --enable-rbac-authorization --tags {{.TAGS}} "{{.KEYVAULT_NAME}}"
       - defer: rm -f "{{.SECRET_TEMP}}"
-      - yq -o=json "{{.CONFIG_FILE}}" > "{{.SECRET_TEMP}}"
+        silent: true
+      - cmd: yq -o=json "{{.CONFIG_FILE}}" > "{{.SECRET_TEMP}}"
+        silent: true
       - |
         az keyvault secret set {{.AZ_CLI_OPTS}} \
           --name config \
@@ -178,6 +181,7 @@ tasks:
       - task: update:config
         vars:
           RUN: yq -i e '.crossplane_workload_identity |= { .clientId |= "{{.CLIENT_ID}}" | .tenantId |= "{{.TENANT_ID}}"}' "{{.CONFIG_FILE}}"
+        silent: true
 
   azure:creds:create:
     deps:
@@ -250,17 +254,20 @@ tasks:
     env:
       WAIT_TIMEOUT: "{{default 300 .TIMEOUT}}"
     cmds:
-      - while [[ {{.IF}} ]] && [[ ${WAIT_TIMEOUT} -gt 0 ]]; do sleep 5 && ((WAIT_TIMEOUT-=5)); done || exit 1
+      - cmd: while [[ {{.IF}} ]] && [[ ${WAIT_TIMEOUT} -gt 0 ]]; do sleep 5 && ((WAIT_TIMEOUT-=5)); done || exit 1
+        silent: true
 
   if:
     internal: true
     cmds:
-      - if [[ {{.IF}} ]]; then {{.RUN}}; fi || exit 1
+      - cmd: if [[ {{.IF}} ]]; then {{.RUN}}; fi || exit 1
+        silent: true
 
   ifelse:
     internal: true
     cmds:
-      - if [[ {{.IF}} ]]; then {{.IF_RUN}}; else {{.ELSE_RUN}}; fi || exit 1
+      - cmd: if [[ {{.IF}} ]]; then {{.IF_RUN}}; else {{.ELSE_RUN}}; fi || exit 1
+        silent: true
 
   uninstall:
     deps:
