@@ -23,6 +23,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 - [Task Usage Guidelines](#task-usage-guidelines)
   - [Available Tasks](#available-tasks)
   - [Production vs Demo Tasks](#production-vs-demo-tasks)
+  - [`task install` vs `task sync`](#task-install-vs-task-sync)
   - [Updating Configuration](#updating-configuration)
   - [Task Usage Examples](#task-usage-examples)
 - [Security Notes](#security-notes)
@@ -200,6 +201,14 @@ task azure:creds:delete  # Removes demo Azure credentials
 
 > **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration purposes only. Production Azure resources should be managed through your organization's standard infrastructure management practices (Terraform, Bicep, ARM templates, etc.).
 
+
+### `task install` vs `task sync`
+
+- `task install` - Complete initial setup including Azure credential configuration
+- `task sync` - Updates existing installation (equivalent to `helmfile sync`)
+
+Use `task sync` for updates after the initial installation, not `task install`.
+
 ### Updating Configuration
 
 ```bash
@@ -375,4 +384,4 @@ This reference implementation is designed to be:
 
 ## Troubleshooting
 
-See [troubleshooting.md](docs/troubleshooting.md) for common issues and detailed troubleshooting steps.
+See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and detailed troubleshooting steps.
