@@ -1,52 +1,586 @@
-# Troubleshooting steps
+# Troubleshooting Guide - CNOE Azure Reference Implementation
 
-All applications are deployed as ArgoCD application. The best way is to navigate to ArgoCD UI and look at logs for each application.
+This guide covers common issues and their solutions when using the CNOE Azure Reference Implementation with Taskfile and Helmfile.
+
+## General Troubleshooting Approach
+
+### 1. Check ArgoCD Applications
+
+All components are deployed as ArgoCD applications. Start by checking their status:
 
 ```bash
-# Get the admin ArgoCD password
+# Get ArgoCD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-# Port forward to 8081. 8080 could be in-use by the install / uninstall scripts.
-kubectl port-forward svc/argocd-server -n argocd 8081:80
 
-Go to http://localhost:8081
+# Port forward to ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 8080:80
 ```
 
-# Common issues
+Navigate to http://localhost:8080 and login with username `admin` to view:
 
-## Argo Workflows
+- Application sync status
+- Resource health
+- Event logs
+- Sync history
 
-### Argo Workflows controller stuck in Crash Loop.
-
-You may see error message like:
-
-```
-Error: Get "https://<DOMAIN>/realms/cnoe/.well-known/openid-configuration": dial tcp: lookup <DOMAIN> on 10.100.0.10:53: no such host
-```
-
-This is due to DNS propagation delay in the cluster. Once DNS entries are propagated (may take ~10 min), pods should start running.
-
-## Certificates
-
-General steps are [outlined here](https://cert-manager.io/docs/troubleshooting/).
-
-### Certificates not issued
-
-You may see something like this
+### 2. Check Taskfile Operations
 
 ```bash
-$ kubectl -n argo get certificate
-NAME                      READY   SECRET                    AGE
-argo-workflows-prod-tls   FALSE    argo-workflows-prod-tls   3m52s
+# View available tasks
+task --list-all
 
-$ kubectl -n argo get challenge
-NAME                                                  STATE     DOMAIN                            AGE
-argo-workflows-prod-tls-qxfjq-1305584735-1533108683   pending   argo.<DOMAIN>   91s
+# Check configuration
+task diff
+
+# Verify Helmfile status
+task helmfile:status
 ```
 
-If you describe the challenge, you may see something like this.
+### 3. Common Diagnostic Commands
+
+```bash
+# Check cluster connectivity
+kubectl cluster-info
+
+# View all ArgoCD applications
+kubectl get applications -n argocd
+
+# Check application sets
+kubectl get applicationsets -n argocd
+
+# View workload identities
+kubectl get workloadidentities.azure.livewyer.io -A
+```
+
+## Installation Issues
+
+### Task Installation Fails
+
+**Symptoms**: `task install` command fails
+
+**Common Causes**:
+
+1. Missing prerequisite Azure resources (AKS cluster, DNS zone, Key Vault)
+2. Incorrect configuration in config.yaml
+3. Azure CLI not authenticated
+4. Incorrect cluster context
+5. Missing required tools
+
+**Solutions**:
+
+```bash
+# Verify prerequisite Azure resources exist
+az aks show --name $(yq '.cluster_name' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+az network dns zone show --name $(yq '.domain' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+az keyvault show --name $(yq '.keyvault' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+
+# Verify required tools
+which az kubectl yq jq helm helmfile task
+
+# Check Azure CLI login
+az account show
+
+# Verify correct cluster context
+kubectl config current-context
+
+# Validate configuration file
+yq '.' config.yaml
+
+# Check cluster OIDC issuer
+az aks show --name $(yq '.cluster_name' config.yaml) \
+  --resource-group $(yq '.resource_group' config.yaml) \
+  --query "oidcIssuerProfile.issuerUrl" -o tsv
+```
+
+### Helmfile Deployment Issues
+
+**Symptoms**: Helmfile fails to deploy ArgoCD
+
+**Debug Steps**:
+
+```bash
+# Check Helmfile syntax
+task helmfile:lint
+
+# View what would be deployed
+task helmfile:diff
+
+# Check Helm repositories
+helm repo list
+
+# Manual Helmfile debug
+helmfile --debug diff
+```
+
+### Azure Workload Identity Issues
+
+**Symptoms**: Components can't authenticate to Azure services
+
+**Debug Steps**:
+
+```bash
+# Check managed identity creation
+az identity list --resource-group $(yq '.resource_group' config.yaml)
+
+# Verify federated credentials
+az identity federated-credential list \
+  --name crossplane \
+  --resource-group $(yq '.resource_group' config.yaml)
+
+# Check service account annotations
+kubectl get sa crossplane -n crossplane-system -o yaml
+
+# Verify workload identity resources
+kubectl get workloadidentities.azure.livewyer.io -A -o yaml
+```
+
+**Common Fixes**:
+
+```bash
+# Update Azure credentials (for demo environments only)
+task azure:creds:delete
+task azure:creds:create
+
+# Update workload identity configuration
+task update:secret:azure
+```
+
+> **Important**: The `azure:creds:*` tasks are helper functions for demonstration only. In production, Azure identities should be managed through your organization's infrastructure management approach.
+
+## Understanding Task Commands
+
+### Production vs Demo Tasks
+
+**Production Tasks** (safe for production use):
+
+- `task install` - Full initial installation
+- `task sync` - Deploy/update components (equivalent to `helmfile sync`)
+- `task update` - Update configuration secrets in Key Vault
+- `task diff` - Show pending changes
+- `task uninstall` - Clean removal of all components
+
+**Demo/Helper Tasks** (for testing and demonstration only):
+
+- `task test:aks:create` - Creates test AKS cluster (NOT for production)
+- `task test:aks:destroy` - Removes test AKS cluster
+- `task azure:creds:create` - Creates demo Azure credentials (NOT for production)
+- `task azure:creds:delete` - Removes demo Azure credentials
+
+### Task Usage Clarification
+
+**Common Confusion**: `task sync` vs `task install`
+
+- `task install` - Complete initial setup including Azure credential configuration
+- `task sync` - Updates existing installation (equivalent to `helmfile sync`)
+
+Use `task sync` for updates after the initial installation, not `task install`.
+
+## Component-Specific Issues
+
+### ArgoCD Issues
+
+#### ArgoCD Not Accessible
+
+**Symptoms**: Cannot access ArgoCD UI
+
+**Debug Steps**:
+
+```bash
+# Check ArgoCD deployment
+kubectl get pods -n argocd
+
+# Check ingress
+kubectl get ingress -n argocd
+
+# Check service
+kubectl get svc -n argocd argocd-server
+
+# Check logs
+kubectl logs -n argocd deployment/argocd-server
+```
+
+#### Applications Not Syncing
+
+**Symptoms**: ArgoCD applications stuck in "OutOfSync" or "Unknown" state
+
+**Solutions**:
+
+```bash
+# Force refresh application
+kubectl patch app APP_NAME -n argocd --type merge --patch '{"operation":{"initiatedBy":{"automated":true}}}'
+
+# Check repository access
+kubectl get secret -n argocd argocd-repo-server-tls-certs-cm
+
+# Verify repository connectivity
+kubectl exec -n argocd deployment/argocd-server -- argocd repo list
+```
+
+### Crossplane Issues
+
+#### Provider Not Ready
+
+**Symptoms**: Crossplane Azure provider fails to install
+
+**Debug Steps**:
+
+```bash
+# Check provider status
+kubectl get providers
+
+# Check provider config
+kubectl get providerconfigs
+
+# Check crossplane logs
+kubectl logs -n crossplane-system deployment/crossplane
+
+# Verify workload identity
+kubectl describe workloadidentity crossplane -n crossplane-system
+```
+
+### External-DNS Issues
+
+#### DNS Records Not Created
+
+**Symptoms**: DNS records are not automatically created
+
+**Debug Steps**:
+
+```bash
+# Check external-dns logs
+kubectl logs -n external-dns deployment/external-dns
+
+# Check workload identity
+kubectl get workloadidentity external-dns -n external-dns -o yaml
+
+# Verify DNS zone permissions
+az role assignment list --scope "/subscriptions/$(yq '.subscription' config.yaml)/resourceGroups/$(yq '.resource_group' config.yaml)/providers/Microsoft.Network/dnszones/$(yq '.domain' config.yaml)"
+```
+
+**Common Fixes**:
+
+```bash
+# Update external-dns workload identity (demo environments)
+task update:secret:external-dns
+
+# Check domain configuration
+yq '.domain' config.yaml
+
+# Verify DNS zone exists
+az network dns zone show --name $(yq '.domain' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
+```
+
+### Cert-Manager Issues
+
+#### Certificates Not Issued
+
+**Symptoms**: TLS certificates remain in "Pending" state
+
+**Debug Steps**:
+
+```bash
+# Check certificate status
+kubectl get certificates -A
+
+# Check certificate requests
+kubectl get certificaterequests -A
+
+# Check challenges
+kubectl get challenges -A
+
+# Check issuer status
+kubectl get clusterissuers
+
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager
+```
+
+**Common Error Messages**:
 
 ```
-Reason:      Waiting for HTTP-01 challenge propagation: failed to perform self check GET request 'http://argo.DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c': Get "http://argo.DOMAIN_NAME/.well-known/acme-challenge/6AQ5cRc7J6FNQ9xGOBDI5_G1lHsNM5J5ivbS3iSHd3c": dial tcp: lookup argo.DOMAIN_NAME on 10.100.0.10:53: no such host
+Get "http://example.com/.well-known/acme-challenge/...": dial tcp: lookup example.com: no such host
 ```
 
-This is due to DNS propagation delay in the cluster. Once DNS entries are propagated (may take ~10 min), certs should be issued.
+**Solution**: DNS propagation delay. Wait 5-10 minutes for DNS to propagate.
+
+### Keycloak Issues
+
+#### Keycloak Pod Failing
+
+**Symptoms**: Keycloak pods crash or fail to start
+
+**Debug Steps**:
+
+```bash
+# Check pod status
+kubectl get pods -n keycloak
+
+# Check logs
+kubectl logs -n keycloak deployment/keycloak
+
+# Check persistent volume claims
+kubectl get pvc -n keycloak
+
+# Check secrets
+kubectl get secrets -n keycloak
+```
+
+#### SSO Authentication Issues
+
+**Symptoms**: Cannot log into Backstage via Keycloak
+
+**Debug Steps**:
+
+```bash
+# Check Keycloak accessibility
+curl -k https://keycloak.YOUR_DOMAIN/realms/cnoe/.well-known/openid-configuration
+
+# Check user secrets
+kubectl get secrets -n keycloak keycloak-user-config -o yaml
+
+# Verify Backstage configuration
+kubectl get configmap -n backstage backstage-config -o yaml
+```
+
+### Backstage Issues
+
+#### Backstage Pod Crashing
+
+**Symptoms**: Backstage pods fail to start
+
+**Debug Steps**:
+
+```bash
+# Check pod logs
+kubectl logs -n backstage deployment/backstage
+
+# Check configuration
+kubectl get configmap -n backstage -o yaml
+
+# Check secrets
+kubectl get secrets -n backstage -o yaml
+
+# Verify GitHub integration configuration in config.yaml
+yq '.github' config.yaml
+```
+
+### Ingress Issues
+
+#### Load Balancer Not Created
+
+**Symptoms**: ingress-nginx service has no external IP
+
+**Debug Steps**:
+
+```bash
+# Check service status
+kubectl get svc -n ingress-nginx
+
+# Check ingress-nginx logs
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
+
+# Check Azure Load Balancer
+az network lb list --resource-group MC_$(yq '.resource_group' config.yaml)_$(yq '.cluster_name' config.yaml)_$(yq '.location' config.yaml)
+```
+
+## Configuration Issues
+
+### GitHub Integration Problems
+
+**Symptoms**: Backstage cannot connect to GitHub
+
+**Solutions**:
+
+```bash
+# Verify GitHub configuration in config.yaml
+yq '.github' config.yaml
+
+# Check if configuration was uploaded to Key Vault
+az keyvault secret show --name config --vault-name $(yq '.keyvault' config.yaml)
+
+# Update configuration
+task update:secret
+```
+
+> **Important**: GitHub integration details are stored in `config.yaml`, not in private files. All configuration is centralized in this file and stored securely in Azure Key Vault.
+
+### Domain and DNS Issues
+
+**Symptoms**: Services not accessible via domain names
+
+**Debug Steps**:
+
+```bash
+# Check DNS resolution
+nslookup backstage.YOUR_DOMAIN
+
+# Verify ingress configuration
+kubectl get ingress -A
+
+# Check external-dns logs
+kubectl logs -n external-dns deployment/external-dns
+
+# Test load balancer IP
+kubectl get svc -n ingress-nginx ingress-nginx-controller
+curl -H "Host: backstage.YOUR_DOMAIN" http://LOAD_BALANCER_IP
+```
+
+### Azure Key Vault Issues
+
+**Symptoms**: External secrets cannot fetch secrets from Key Vault
+
+**Debug Steps**:
+
+```bash
+# Check Key Vault access
+az keyvault secret list --vault-name $(yq '.keyvault' config.yaml)
+
+# Verify external-secrets logs
+kubectl logs -n external-secrets deployment/external-secrets
+
+# Check workload identity for external-secrets
+kubectl get workloadidentity external-secrets -n external-secrets -o yaml
+
+# Test Key Vault connectivity
+kubectl run test-pod --rm -i --tty --image=mcr.microsoft.com/azure-cli -- az keyvault secret list --vault-name $(yq '.keyvault' config.yaml)
+```
+
+## Performance Issues
+
+### Slow Installation
+
+**Symptoms**: Installation takes very long or times out
+
+**Common Causes**:
+
+1. DNS propagation delays
+2. Certificate issuance delays
+3. Image pull issues
+4. Resource constraints
+
+**Solutions**:
+
+```bash
+# Check node resources
+kubectl top nodes
+
+# Check pod resources
+kubectl top pods -A
+
+# Scale up cluster if needed (using your infrastructure management approach)
+# Example for testing: az aks scale --name CLUSTER --resource-group RG --node-count 3
+
+# Check image pull status
+kubectl get events -A --sort-by=.metadata.creationTimestamp
+```
+
+### High Resource Usage
+
+**Symptoms**: Cluster running out of resources
+
+**Debug
+Steps**:
+
+```bash
+# Check resource requests and limits
+kubectl describe nodes
+
+# Identify resource-hungry pods
+kubectl top pods -A --sort-by=cpu
+kubectl top pods -A --sort-by=memory
+
+# Check persistent volume usage
+kubectl get pv
+```
+
+## Recovery Procedures
+
+### Reinstalling Components
+
+```bash
+# Reinstall specific component
+kubectl delete app COMPONENT_NAME -n argocd
+task sync
+
+# Full reinstall
+task uninstall
+task install
+```
+
+### Backup and Restore
+
+```bash
+# Backup ArgoCD configuration
+kubectl get applications -n argocd -o yaml > argocd-apps-backup.yaml
+
+# Backup configuration from Key Vault
+az keyvault secret show --name config --vault-name $(yq '.keyvault' config.yaml) > config-backup.json
+
+# Restore from backup
+kubectl apply -f argocd-apps-backup.yaml
+```
+
+### Emergency Access
+
+```bash
+# Direct kubectl access to services
+kubectl port-forward svc/argocd-server -n argocd 8080:80
+kubectl port-forward svc/backstage -n backstage 3000:7007
+
+# Reset ArgoCD admin password
+kubectl patch secret argocd-initial-admin-secret -n argocd -p '{"data":{"password":"'$(echo -n 'new-password' | base64)'"}}'
+```
+
+## Getting Help
+
+### Collecting Diagnostic Information
+
+```bash
+# Create diagnostic bundle
+mkdir cnoe-diagnostics
+kubectl cluster-info dump --output-directory=cnoe-diagnostics/cluster-info
+kubectl get events -A --sort-by=.metadata.creationTimestamp > cnoe-diagnostics/events.yaml
+kubectl get pods -A -o yaml > cnoe-diagnostics/pods.yaml
+task helmfile:status > cnoe-diagnostics/helmfile-status.txt
+yq '.' config.yaml > cnoe-diagnostics/config.yaml
+```
+
+### Support Resources
+
+- **Repository Issues**: https://github.com/your-org/cnoe-reference-implementation-azure/issues
+- **CNOE Community**: https://cnoe.io/community
+- **ArgoCD Documentation**: https://argo-cd.readthedocs.io/
+- **Backstage Documentation**: https://backstage.io/docs/
+
+### Common Log Locations
+
+```bash
+# ArgoCD logs
+kubectl logs -n argocd deployment/argocd-application-controller
+kubectl logs -n argocd deployment/argocd-server
+
+# Component logs
+kubectl logs -n NAMESPACE deployment/COMPONENT_NAME
+
+# System logs
+journalctl -u kubelet (on cluster nodes)
+```
+
+## Prevention Tips
+
+1. **Proper Prerequisites**: Ensure all Azure resources are properly provisioned before installation
+2. **Configuration Management**: Keep config.yaml up-to-date and validate before applying changes
+3. **Regular Updates**: Use `task sync` to keep components updated
+4. **Monitor Resources**: Set up monitoring for cluster resources
+5. **Backup Strategy**: Regular backups of critical configurations
+6. **Testing**: Test changes in a separate environment first
+7. **Infrastructure Management**: Use proper infrastructure management tools for production Azure resources
+
+## Important Notes
+
+- **Configuration Location**: All configuration is in `config.yaml`, not in private files
+- **Task Purpose**: Helper tasks (`test:*`, `azure:creds:*`) are for demo purposes only
+- **Production Resources**: Azure infrastructure should be managed separately from this reference implementation
+- **Task Sync**: Use `task sync` for updates, not `task install` after initial setup
+
+Remember: Most issues are related to missing prerequisites, authentication, networking, or resource constraints. Start with verifying prerequisites and work systematically through the troubleshooting steps.
