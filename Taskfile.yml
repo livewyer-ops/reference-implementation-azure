@@ -153,9 +153,14 @@ tasks:
         silent: true
     preconditions:
       - yq 'true' "{{.CONFIG_FILE}}"
+    vars:
+      ENABLED:
+        sh: yq '[select(.crossplane_workload_identity.create==true)] | length' "{{.CONFIG_FILE}}"
     cmds:
       - task: azure:creds:create
+        for: ["{{.ENABLED}}"]
       - task: azure:creds:get
+        for: ["{{.ENABLED}}"]
 
   azure:creds:get:
     deps:
@@ -221,14 +226,18 @@ tasks:
     preconditions:
       - yq 'true' "{{.CONFIG_FILE}}"
     vars:
+      ENABLED:
+        sh: yq '[select(.crossplane_workload_identity.create==true)] | length' "{{.CONFIG_FILE}}"
       IDENTITY_NAME: crossplane
       PRINCIPAL_ID:
         sh: az identity show {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}" --query 'principalId' -o tsv
       ROLE_ASSIGNMENT_ID:
         sh: az role assignment list {{.AZ_CLI_OPTS}} --query "[?principalId=='{{.PRINCIPAL_ID}}'].id" -o tsv
     cmds:
-      - az role assignment delete {{.AZ_CLI_OPTS}} --ids "{{.ROLE_ASSIGNMENT_ID}}"
-      - az identity delete {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}"
+      - cmd: az role assignment delete {{.AZ_CLI_OPTS}} --ids "{{.ROLE_ASSIGNMENT_ID}}"
+        for: ["{{.ENABLED}}"]
+      - cmd: az identity delete {{.AZ_CLI_OPTS}} --name "{{.IDENTITY_NAME}}"
+        for: ["{{.ENABLED}}"]
 
   cleanup:
     internal: true
