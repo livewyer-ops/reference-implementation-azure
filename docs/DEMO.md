@@ -1,10 +1,70 @@
+<!-- omit from toc -->
 # Demo Guide - CNOE Azure Reference Implementation
 
 This guide demonstrates the key features and capabilities of the CNOE Azure Reference Implementation through practical examples focused on Azure services and infrastructure.
 
+<!-- omit from toc -->
+## Best Practices Demonstrated
+
+### 1. GitOps Workflow
+
+- All changes through Git
+- Declarative configuration
+- Automated reconciliation
+
+### 2. Security
+
+- Workload Identity for Azure authentication
+- Secret management with External Secrets
+- TLS everywhere with cert-manager
+- Configuration stored securely in Azure Key Vault
+
+### 3. Developer Experience
+
+- Self-service via Backstage templates
+- Integrated tooling in single interface
+- Documentation as code
+
+### 4. Operational Excellence
+
+- Infrastructure as Code
+- Automated DNS and certificate management
+- Comprehensive monitoring
+- Centralized configuration management
+
+<!-- omit from toc -->
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+  - [1. Access the Platform](#1-access-the-platform)
+  - [2. Platform Overview](#2-platform-overview)
+- [Demo Scenarios](#demo-scenarios)
+  - [Scenario 1: Exploring the Software Catalog](#scenario-1-exploring-the-software-catalog)
+  - [Scenario 2: Creating a New Application from Template](#scenario-2-creating-a-new-application-from-template)
+    - [Basic Application Template](#basic-application-template)
+    - [Argo Workflows Template](#argo-workflows-template)
+  - [Scenario 3: Managing Deployments with ArgoCD](#scenario-3-managing-deployments-with-argocd)
+  - [Scenario 4: Running Workflows with Argo Workflows](#scenario-4-running-workflows-with-argo-workflows)
+  - [Scenario 5: Infrastructure as Code with Crossplane](#scenario-5-infrastructure-as-code-with-crossplane)
+  - [Scenario 6: Secret Management](#scenario-6-secret-management)
+  - [Scenario 7: DNS and TLS Management](#scenario-7-dns-and-tls-management)
+- [Advanced Use Cases](#advanced-use-cases)
+  - [Multi-Environment Promotion](#multi-environment-promotion)
+  - [Azure Integration Examples](#azure-integration-examples)
+  - [Monitoring and Observability](#monitoring-and-observability)
+- [Troubleshooting Common Demo Issues](#troubleshooting-common-demo-issues)
+  - [Application Not Syncing](#application-not-syncing)
+  - [Certificate Not Issued](#certificate-not-issued)
+  - [Workflow Failing](#workflow-failing)
+  - [Configuration Issues](#configuration-issues)
+- [Next Steps](#next-steps)
+- [Additional Resources](#additional-resources)
+- [Feedback and Contributions](#feedback-and-contributions)
+
 ## Prerequisites
 
-- Complete installation following the [README](../README.md)
+- Complete installation following the instructions in the [README.md](../README.md) file
 - All prerequisite Azure resources (AKS cluster, DNS zone, Key Vault) properly configured
 - Access to Backstage UI at your configured domain
 - Default users (`user1`, `user2`) credentials from Keycloak
@@ -41,19 +101,16 @@ Once logged in, you'll see the Backstage home page with:
 The Software Catalog provides a centralized view of all your software components.
 
 1. **Navigate to Catalog**: Click on "Catalog" in the sidebar
-
-- **View Entities**: You'll see various entity types:
-  - **Components**: Microservices and applications
-  - **APIs**: Service interfaces
-  - **Systems**: Business capabilities
-  - **Domains**: Business areas
-
-3. **Filter and Search**:
+  - **View Entities**: You'll see various entity types:
+    - **Components**: Microservices and applications
+    - **APIs**: Service interfaces
+    - **Systems**: Business capabilities
+    - **Domains**: Business areas
+2. **Filter and Search**:
    - Use filters to narrow down by type, owner, or tags
    - Search for specific components
    - View ownership and relationships
-
-4. **Component Details**: Click on any component to see:
+3. **Component Details**: Click on any component to see:
    - Overview and documentation
    - API specs
    - Dependencies and relationships
@@ -257,71 +314,6 @@ Show automatic DNS and certificate management.
    - Cert-manager issues TLS certificate
    - Application becomes accessible with HTTPS
 
-## Configuration Management Demo
-
-### Understanding config.yaml
-
-All platform configuration is centralized in `config.yaml`. This includes:
-
-```yaml
-# Example configuration structure
-repo:
-  url: https://github.com/your-org/cnoe-reference-implementation-azure
-  revision: main
-
-cluster_name: your-aks-cluster
-subscription: your-azure-subscription-id
-location: eastus
-resource_group: your-resource-group
-domain: your-domain.com
-keyvault: your-key-vault
-
-github:
-  appId: "1234567"
-  installationId: "8901234"
-  orgURL: https://github.com/your-org
-  clientId: your-client-id
-  clientSecret: your-client-secret
-  # All GitHub integration details are here, not in private files
-
-crossplane_workload_identity:
-  clientId: your-crossplane-client-id
-  tenantId: your-tenant-id
-```
-
-### Updating Configuration
-
-```bash
-# Make changes to config.yaml
-vim config.yaml
-
-# Update the platform configuration
-task update
-
-# Sync changes to all components
-task sync
-```
-
-### Task Usage Examples
-
-```bash
-# View configuration differences before applying
-task diff
-
-# Deploy updates (equivalent to helmfile sync)
-task sync
-
-# Update only the configuration secrets in Key Vault
-task update:secret
-
-# Initialize and validate configuration
-task init
-
-# Full reinstallation
-task uninstall
-task install
-```
-
 ## Advanced Use Cases
 
 ### Multi-Environment Promotion
@@ -393,59 +385,6 @@ Integrate monitoring stack:
    # Verify Azure DNS zone
    az network dns zone show --name $(yq '.domain' config.yaml) --resource-group $(yq '.resource_group' config.yaml)
    ```
-
-## Best Practices Demonstrated
-
-### 1. GitOps Workflow
-
-- All changes through Git
-- Declarative configuration
-- Automated reconciliation
-
-### 2. Security
-
-- Workload Identity for Azure authentication
-- Secret management with External Secrets
-- TLS everywhere with cert-manager
-- Configuration stored securely in Azure Key Vault
-
-### 3. Developer Experience
-
-- Self-service via Backstage templates
-- Integrated tooling in single interface
-- Documentation as code
-
-### 4. Operational Excellence
-
-- Infrastructure as Code
-- Automated DNS and certificate management
-- Comprehensive monitoring
-- Centralized configuration management
-
-## Task Usage Guidelines
-
-### Production vs Demo Tasks
-
-**Production Tasks** (safe for production use):
-
-```bash
-task install    # Full installation
-task sync       # Update components (helmfile sync equivalent)
-task update     # Update configuration secrets
-task diff       # Show pending changes
-task uninstall  # Clean removal
-```
-
-**Demo/Helper Tasks** (for demonstration and testing only):
-
-```bash
-task test:aks:create     # Creates test AKS cluster - NOT for production
-task test:aks:destroy    # Removes test AKS cluster
-task azure:creds:create  # Creates demo Azure credentials - NOT for production
-task azure:creds:delete  # Removes demo Azure credentials
-```
-
-> **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration purposes only. Production Azure resources should be managed through your organization's standard infrastructure management practices (Terraform, Bicep, ARM templates, etc.).
 
 ## Next Steps
 

@@ -7,6 +7,9 @@
 
 This repository provides a reference implementation for deploying Cloud Native Operations Enabler (CNOE) components on Azure Kubernetes Service (AKS) using GitOps principles.
 
+<!-- omit from toc -->
+## Table of Contents
+
 - [Architecture](#architecture)
   - [Deployed Components](#deployed-components)
   - [Important Notes](#important-notes)
@@ -17,7 +20,11 @@ This repository provides a reference implementation for deploying Cloud Native O
     - [Create GitHub App for Backstage](#create-github-app-for-backstage)
     - [Create GitHub Token](#create-github-token)
 - [Installation Flow](#installation-flow)
+- [Task Usage Guidelines](#task-usage-guidelines)
   - [Available Tasks](#available-tasks)
+  - [Production vs Demo Tasks](#production-vs-demo-tasks)
+  - [Updating Configuration](#updating-configuration)
+  - [Task Usage Examples](#task-usage-examples)
 - [Security Notes](#security-notes)
 - [Installation](#installation)
   - [Requirements](#requirements)
@@ -151,6 +158,8 @@ erDiagram
   "ArgoCD" ||--o{ "Components" : "installs via ApplicationSets"
 ```
 
+## Task Usage Guidelines
+
 ### Available Tasks
 
 ```bash
@@ -166,6 +175,62 @@ task test:aks:create     # Create test AKS cluster (NOT for production)
 task test:aks:destroy    # Delete test AKS cluster
 task azure:creds:create  # Create Azure credentials (demo only)
 task azure:creds:delete  # Delete Azure credentials (demo only)
+```
+
+### Production vs Demo Tasks
+
+**Production Tasks** (safe for production use):
+
+```bash
+task install    # Full installation
+task sync       # Update components (helmfile sync equivalent)
+task update     # Update configuration secrets
+task diff       # Show pending changes
+task uninstall  # Clean removal
+```
+
+**Demo/Helper Tasks** (for demonstration and testing only):
+
+```bash
+task test:aks:create     # Creates test AKS cluster - NOT for production
+task test:aks:destroy    # Removes test AKS cluster
+task azure:creds:create  # Creates demo Azure credentials - NOT for production
+task azure:creds:delete  # Removes demo Azure credentials
+```
+
+> **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration purposes only. Production Azure resources should be managed through your organization's standard infrastructure management practices (Terraform, Bicep, ARM templates, etc.).
+
+### Updating Configuration
+
+```bash
+# Make changes to config.yaml
+vim config.yaml
+
+# Update the platform configuration
+task update
+
+# Sync changes to all components
+task sync
+```
+
+### Task Usage Examples
+
+```bash
+# View configuration differences before applying
+task diff
+
+# Deploy updates (equivalent to helmfile sync)
+task sync
+
+# Update only the configuration secrets in Key Vault
+task update:secret
+
+# Initialize and validate configuration
+task init
+
+# Full reinstallation
+task uninstall
+task install
 ```
 
 > **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration and testing purposes only. They are **NOT recommended for production deployments**. Production infrastructure should be managed using your organization's standard infrastructure management practices.
