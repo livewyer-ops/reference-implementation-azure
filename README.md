@@ -21,8 +21,8 @@ This repository provides a reference implementation for deploying Cloud Native O
     - [Create GitHub Token](#create-github-token)
 - [Installation Flow](#installation-flow)
 - [Security Notes](#security-notes)
-- [Installation](#installation)
-  - [Requirements](#requirements)
+- [Installation Steps](#installation-steps)
+  - [Installation Requirements](#installation-requirements)
   - [1. Configure the Installation](#1-configure-the-installation)
     - [DNS and TLS Configuration](#dns-and-tls-configuration)
       - [Automatic (Recommended)](#automatic-recommended)
@@ -31,12 +31,13 @@ This repository provides a reference implementation for deploying Cloud Native O
   - [3. Monitor Installation](#3-monitor-installation)
   - [4. Get Access URLs](#4-get-access-urls)
   - [5. Access Backstage](#5-access-backstage)
-- [Usage Examples](#usage-examples)
+- [Usage](#usage)
 - [Update Component Configurations](#update-component-configurations)
   - [Backstage Templates](#backstage-templates)
 - [Uninstall](#uninstall)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
+- [Potential Enhancements](#potential-enhancements)
 
 ## Architecture
 
@@ -45,7 +46,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 - Components are deployed as **ArgoCD Applications**
 - Uses **Azure Workload Identity** for secure authentication to Azure services
 - Files under the `/packages` directory are meant to be usable without modifications
-- Configuration is externalized through the `config.yaml` file
+- Configuration is externalised through the `config.yaml` file
 
 ### Deployed Components
 
@@ -64,8 +65,8 @@ This repository provides a reference implementation for deploying Cloud Native O
 ## Important Notes
 
 - **Azure Resource Management**: This repository does not manage Azure infrastructure. AKS cluster, DNS zone, Key Vault, and related resources must be provisioned separately using your organization's infrastructure management approach.
-- **Production Readiness**: The helper tasks, in this repository, for creating Azure resources are for demo purposes only. Production deployments should follow enterprise infrastructure management practices.
-- **Configuration Management**: All configuration is centralized in `config.yaml`. The `private/` directory is only for temporary files during development.
+- **Production Readiness**: The helper tasks in this repository are for creating Azure resources for demo purposes only. Any production deployments should follow enterprise infrastructure management practices.
+- **Configuration Management**: All configuration is centralised in `config.yaml`. The `private/` directory is only for temporary files during development.
 
 ## Prerequisites
 
@@ -89,7 +90,7 @@ Before using this reference implementation, you **MUST** have the following Azur
 
 > **Important**: 
 > - All Azure resources must be in the same subscription and resource group
-> - These resources are prerequisites and must be provisioned using your organization's preferred infrastructure management approach (Terraform, Bicep, ARM templates, etc.). The tasks in this repository that create Azure resources (`azure:creds:create`, `test:aks:create`, etc.) are helper functions for demonstration purposes only and are **NOT recommended for production deployments**.
+> - These resources are prerequisites and must be provisioned using your organisation's preferred infrastructure management approach (Terraform, Bicep, ARM templates, etc.). The tasks in this repository that create Azure resources (`azure:creds:create`, `test:aks:create`, etc.) are helper functions for demonstration purposes only and are **NOT recommended for production deployments**.
 
 #### Setup Guidance for Azure Resources
 
@@ -104,14 +105,14 @@ For setting up the prerequisite Azure resources, refer to the official Azure doc
 
 #### Create GitHub App for Backstage
 
-You need a GitHub App to enable Backstage integration with your GitHub organization.
+You need a GitHub App to enable Backstage integration with your GitHub organisation.
 
 **Option 1: Using Backstage CLI (Recommended)**
 
 ```bash
 npx '@backstage/cli' create-github-app ${GITHUB_ORG_NAME}
 # Select appropriate permissions when prompted
-# Install the app to your organization in the browser
+# Install the app to your organisation in the browser
 
 # Move the credentials file to a temporary location
 mkdir -p private
@@ -165,9 +166,9 @@ erDiagram
 - Workload Identity is used for secure Azure authentication
 - TLS encryption is used for all external traffic
 
-## Installation
+## Installation Steps
 
-### Requirements
+### Installation Requirements
 
 - **Azure CLI** (2.13+) with subscription access
 - **kubectl** (1.27+)
@@ -178,11 +179,11 @@ erDiagram
 - **helm** (3.x)
 - **helmfile**
 - **task** (Taskfile executor)
-- A **GitHub Organization** (free to create)
+- A **GitHub Organisation** (free to create)
 
 ### 1. Configure the Installation
 
-Copy and customize the configuration:
+Copy and customise the configuration:
 
 ```bash
 cp config.yaml.template config.yaml
@@ -272,13 +273,13 @@ The URL structure of the URLs will depend on the type of routing you set in the 
 Once the Keycloak and Backstage are installed, check you can login to the Backstage UI with a default user:
 
 ```bash
-# Get user passwords
-kubectl get secrets -n keycloak keycloak-user-config -o go-template='{{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
+# Get user password
+kubectl -n keycloak get secret keycloak-config -o yaml | yq '.data.USER1_PASSWORD | @base64d'
 ```
 
-## Usage Examples
+## Usage
 
-See [DEMO.md](docs/DEMO.md) for usage examples.
+See [DEMO.md](docs/DEMO.md) for information on how to navigate the platform and for usage examples.
 
 ## Update Component Configurations
 
@@ -295,17 +296,34 @@ Backstage templates can be found in the `templates/` directory
 task uninstall
 
 # Clean up GitHub App and tokens manually
-# Delete the GitHub organization if no longer needed
+# Delete the GitHub organisation if no longer needed
 ```
 
 ## Contributing
 
 This reference implementation is designed to be:
 
-- **Forkable**: Create your own version for your organization
+- **Forkable**: Create your own version for your organisation
 - **Customizable**: Modify configurations without changing core packages
 - **Extensible**: Add new components following the established patterns
 
 ## Troubleshooting
 
 See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and detailed troubleshooting steps.
+
+## Potential Enhancements
+
+The installation of this Azure reference implemenation will give you a starting point for the platform, however as previously stated applications deployed in this repository are not meant or configured for production. To push it towards production ready, you can make further enhancements that could include:
+
+1. Modifying the basic and Argo workflow templates for your specific Azure use cases
+2. Intergrating additional Azure services with Crossplane
+3. Configuring auto-scaling for AKS and Azure resources
+4. Adding OPA Gatekeeper for governance
+5. Intergrating a monitoring stack. For example:
+   1. Deploy Prometheus and Grafana
+   2. Configure service monitors for Azure resources
+   3. View metrics and Azure resource status in Backstage
+6. Implementing GitOps-based environment promotion:
+   1. **Development**: Deploy to dev environment via Git push
+   2. **Testing**: Promote to test environment via ArgoCD
+   3. **Production**: Use ArgoCD sync waves for controlled rollout
