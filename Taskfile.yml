@@ -29,7 +29,6 @@ tasks:
     deps:
       - update:kubeconfig
     cmds:
-      - defer: { task: cleanup }
       - task: helmfile:init
       - task: helmfile:lint
       - task: helmfile:build
@@ -38,7 +37,6 @@ tasks:
     deps:
       - update:kubeconfig
     cmds:
-      - defer: { task: cleanup }
       - task: azure:creds
       - task: helmfile
       - task: update
@@ -47,23 +45,27 @@ tasks:
     deps:
       - update:kubeconfig
     cmds:
-      - defer: { task: cleanup }
       - task: helmfile:diff
 
   sync:
     deps:
       - update:kubeconfig
     cmds:
-      - defer: { task: cleanup }
       - task: helmfile:sync
       - task: update
+
+  get:urls:
+    deps:
+      - update:kubeconfig
+    cmds:
+      - |
+        kubectl get ingress -A -o yaml | yq '.items[] | {(.metadata.name): ((select(.spec.tls != null) | "https://" // "http://") + .spec.rules[].host + .spec.rules[].http.paths[].path)}'
 
   update:
     deps:
       - task: update:kubeconfig
         silent: true
     cmds:
-      - defer: { task: cleanup }
       - task: update:secret
 
   update:secret:
@@ -71,7 +73,6 @@ tasks:
       - task: update:kubeconfig
         silent: true
     cmds:
-      - defer: { task: cleanup }
       - task: update:secret:azure
       - task: wait
         vars:
