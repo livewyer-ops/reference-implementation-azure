@@ -12,20 +12,14 @@ This repository provides a reference implementation for deploying Cloud Native O
 
 - [Architecture](#architecture)
   - [Deployed Components](#deployed-components)
-  - [Important Notes](#important-notes)
+- [Important Notes](#important-notes)
 - [Prerequisites](#prerequisites)
   - [Required Azure Resources](#required-azure-resources)
-    - [Setup Guidance](#setup-guidance)
+    - [Setup Guidance for Azure Resources](#setup-guidance-for-azure-resources)
   - [GitHub Integration Setup](#github-integration-setup)
     - [Create GitHub App for Backstage](#create-github-app-for-backstage)
     - [Create GitHub Token](#create-github-token)
 - [Installation Flow](#installation-flow)
-- [Task Usage Guidelines](#task-usage-guidelines)
-  - [Available Tasks](#available-tasks)
-  - [Production vs Demo Tasks](#production-vs-demo-tasks)
-  - [`task install` vs `task sync`](#task-install-vs-task-sync)
-  - [Updating Configuration](#updating-configuration)
-  - [Task Usage Examples](#task-usage-examples)
 - [Security Notes](#security-notes)
 - [Installation](#installation)
   - [Requirements](#requirements)
@@ -35,16 +29,19 @@ This repository provides a reference implementation for deploying Cloud Native O
       - [Manual](#manual)
   - [2. Install Components](#2-install-components)
   - [3. Monitor Installation](#3-monitor-installation)
-  - [4. Access Backstage](#4-access-backstage)
-- [Access URLs](#access-urls)
+  - [4. Get Access URLs](#4-get-access-urls)
+  - [5. Access Backstage](#5-access-backstage)
+- [Usage Examples](#usage-examples)
+- [Update Component Configurations](#update-component-configurations)
+  - [Backstage Templates](#backstage-templates)
 - [Uninstall](#uninstall)
-- [What's Next?](#whats-next)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
 ## Architecture
 
 - Installation is managed through **Taskfile** and **Helmfile**
+  - See [TASKFILE.md](./docs/TASKFILE.md) for information about the tasks defined in the `Taskfile.yml` file.
 - Components are deployed as **ArgoCD Applications**
 - Uses **Azure Workload Identity** for secure authentication to Azure services
 - Files under the `/packages` directory are meant to be usable without modifications
@@ -57,32 +54,32 @@ This repository provides a reference implementation for deploying Cloud Native O
 | ArgoCD           | 8.0.14     | GitOps continuous deployment   |
 | Crossplane       | 2.0.2-up.4 | Infrastructure as Code         |
 | Ingress-nginx    | 4.7.0      | Ingress controller             |
-| External-DNS     | 1.16.1     | Automatic DNS management       |
+| ExternalDNS      | 1.16.1     | Automatic DNS management       |
 | External-secrets | 0.17.0     | Secret management              |
 | Cert-manager     | 1.17.2     | TLS certificate management     |
 | Keycloak         | 24.7.3     | Identity and access management |
 | Backstage        | 2.6.0      | Developer portal               |
 | Argo-workflows   | 0.45.18    | Workflow orchestration         |
 
-### Important Notes
+## Important Notes
 
 - **Azure Resource Management**: This repository does not manage Azure infrastructure. AKS cluster, DNS zone, Key Vault, and related resources must be provisioned separately using your organization's infrastructure management approach.
-- **Production Readiness**: The helper tasks for creating Azure resources are for demo purposes only. Production deployments should follow enterprise infrastructure management practices.
+- **Production Readiness**: The helper tasks, in this repository, for creating Azure resources are for demo purposes only. Production deployments should follow enterprise infrastructure management practices.
 - **Configuration Management**: All configuration is centralized in `config.yaml`. The `private/` directory is only for temporary files during development.
 
 ## Prerequisites
 
-Before using this reference implementation, you **MUST** have the following Azure resources already created and configured:
-
 ### Required Azure Resources
+
+Before using this reference implementation, you **MUST** have the following Azure resources already created and configured:
 
 1. **AKS Cluster** (1.27+) with:
    - OIDC Issuer enabled (`--enable-oidc-issuer`)
    - Workload Identity enabled (`--enable-workload-identity`)
    - Sufficient node capacity for all components
+     - For example, the demonstration AKS cluster created with the helper task `azure:creds:create` has node pool with the node size set to `standard_d4alds_v6` by default 
 2. **Azure DNS Zone**
    - A registered domain with Azure DNS as the authoritative DNS service
-   - DNS zone must exist in the same subscription and resource group
 3. **Azure Key Vault**
    - For storing configuration secrets and certificates
    - Must be accessible from the AKS cluster
@@ -90,11 +87,13 @@ Before using this reference implementation, you **MUST** have the following Azur
    - Azure Managed Identity with appropriate permissions
    - Federated credentials configured for the AKS cluster OIDC issuer
 
-> **Important**: These resources are prerequisites and must be provisioned using your organization's preferred infrastructure management approach (Terraform, Bicep, ARM templates, etc.). The tasks in this repository that create Azure resources (`azure:creds:create`, `test:aks:create`, etc.) are helper functions for demonstration purposes only and are **NOT recommended for production deployments**.
+> **Important**: 
+> - All Azure resources must be in the same subscription and resource group
+> - These resources are prerequisites and must be provisioned using your organization's preferred infrastructure management approach (Terraform, Bicep, ARM templates, etc.). The tasks in this repository that create Azure resources (`azure:creds:create`, `test:aks:create`, etc.) are helper functions for demonstration purposes only and are **NOT recommended for production deployments**.
 
-#### Setup Guidance
+#### Setup Guidance for Azure Resources
 
-For setting up the prerequisite resources, refer to the official Azure documentation:
+For setting up the prerequisite Azure resources, refer to the official Azure documentation:
 
 - [Create an AKS cluster](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough)
 - [Azure DNS zones](https://docs.microsoft.com/en-us/azure/dns/)
@@ -132,7 +131,7 @@ Create a GitHub Personal Access Token with these permissions:
 - Repository access for all repositories
 - Read-only access to: Administration, Contents, and Metadata
 
-Save the token value temporarily for configuration in `config.yaml`.
+Save the token value temporarily as you will need it when creating the `config.yaml` file.
 
 ## Installation Flow
 
@@ -158,91 +157,6 @@ erDiagram
   "ArgoCD" ||--o{ "This Repo" : "pulls manifests"
   "ArgoCD" ||--o{ "Components" : "installs via ApplicationSets"
 ```
-
-## Task Usage Guidelines
-
-### Available Tasks
-
-```bash
-task init          # Initialize and validate configuration
-task install       # Full installation
-task sync          # Deploy/update components (equivalent to helmfile sync)
-task diff          # Show pending changes
-task update        # Update configuration secrets
-task uninstall     # Remove all components
-
-# Helper tasks (for demo/testing only):
-task test:aks:create     # Create test AKS cluster (NOT for production)
-task test:aks:destroy    # Delete test AKS cluster
-task azure:creds:create  # Create Azure credentials (demo only)
-task azure:creds:delete  # Delete Azure credentials (demo only)
-```
-
-### Production vs Demo Tasks
-
-**Production Tasks** (safe for production use):
-
-```bash
-task install    # Full installation
-task sync       # Update components (helmfile sync equivalent)
-task update     # Update configuration secrets
-task diff       # Show pending changes
-task uninstall  # Clean removal
-```
-
-**Demo/Helper Tasks** (for demonstration and testing only):
-
-```bash
-task test:aks:create     # Creates test AKS cluster - NOT for production
-task test:aks:destroy    # Removes test AKS cluster
-task azure:creds:create  # Creates demo Azure credentials - NOT for production
-task azure:creds:delete  # Removes demo Azure credentials
-```
-
-> **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration purposes only. Production Azure resources should be managed through your organization's standard infrastructure management practices (Terraform, Bicep, ARM templates, etc.).
-
-
-### `task install` vs `task sync`
-
-- `task install` - Complete initial setup including Azure credential configuration
-- `task sync` - Updates existing installation (equivalent to `helmfile sync`)
-
-Use `task sync` for updates after the initial installation, not `task install`.
-
-### Updating Configuration
-
-```bash
-# Make changes to config.yaml
-vim config.yaml
-
-# Update the platform configuration
-task update
-
-# Sync changes to all components
-task sync
-```
-
-### Task Usage Examples
-
-```bash
-# View configuration differences before applying
-task diff
-
-# Deploy updates (equivalent to helmfile sync)
-task sync
-
-# Update only the configuration secrets in Key Vault
-task update:secret
-
-# Initialize and validate configuration
-task init
-
-# Full reinstallation
-task uninstall
-task install
-```
-
-> **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration and testing purposes only. They are **NOT recommended for production deployments**. Production infrastructure should be managed using your organization's standard infrastructure management practices.
 
 ## Security Notes
 
@@ -277,22 +191,22 @@ cp config.yaml.template config.yaml
 
 Key configuration sections in `config.yaml`:
 
-- `repo`: Your fork details
+- `repo`: The details of the repository hosting the reference azure implementation code
 - `cluster_name`: Your AKS cluster name
-- `subscription`: Azure subscription ID
-- `location`: Azure region
-- `resource_group`: Azure resource group
-- `cluster_oidc_issuer_url`: AKS OIDC issuer URL
-- `domain`: Your domain name
-- `keyvault`: Azure Key Vault name
-- `github`: GitHub App credentials (from the app creation step)
+- `subscription`: Your Azure subscription ID
+- `location`: The target Azure region
+- `resource_group`: Your Azure resource group
+- `cluster_oidc_issuer_url`: The AKS OIDC issuer URL
+- `domain`: The base domain name you will be using for exposing services
+- `keyvault`: Your Azure Key Vault name
+- `github`: GitHub App credentials (from the [Github Integration Setup](#github-integration-setup))
 
 #### DNS and TLS Configuration
 
 ##### Automatic (Recommended)
 
 - Set your domain in `config.yaml`
-- External-DNS manages DNS records automatically
+- ExternalDNS manages DNS records automatically
 - Cert-manager handles Let's Encrypt certificates
 
 ##### Manual
@@ -302,21 +216,26 @@ Key configuration sections in `config.yaml`:
 
 ### 2. Install Components
 
+If installing the reference implementation on a machine for the first time run:
+
+```bash
+task init
+```
+
+If you haven't previously run `task init`, then you will be prompted to install several Helm plugins required by Helmfile when you run the next command:
+
 ```bash
 # Install all components
 task install
-
-# Or run individual steps:
-task init     # Initialize and validate
-task sync     # Deploy/update components (equivalent to helmfile sync)
-task update   # Update configuration secrets
 ```
 
-> **Important**: `task sync` is equivalent to `helmfile sync` and should not be confused with `task install`. Use `task sync` for updates after the initial installation.
+> **Notes**: 
+> - `task install` will update the `config.yaml` file
+> - Post-installation, use `task sync` (the equivalent to running `helmfile sync`) to apply updates. See the [Task Usage Guidelines](docs/TASKFILE.md) for more information.
 
 ### 3. Monitor Installation
 
-Check ArgoCD UI for installation progress:
+Once ArgoCD is running, monitor the installation progress of the other components by checking the Argo CD UI:
 
 ```bash
 # Get ArgoCD admin password
@@ -326,23 +245,13 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 kubectl port-forward svc/argocd-server -n argocd 8080:80
 ```
 
-Access ArgoCD at http://localhost:8080 with username `admin`.
+Access the ArgoCD UI at http://localhost:8080 with username `admin`.
 
-### 4. Access Backstage
+### 4. Get Access URLs
 
-Once installation completes, access Backstage at:
+Use the `task get:urls` command to fetch all the URLs. 
 
-- Domain routing: `https://backstage.YOUR_DOMAIN`
-- Path routing: `https://YOUR_DOMAIN/backstage`
-
-Login with default users:
-
-```bash
-# Get user passwords
-kubectl get secrets -n keycloak keycloak-user-config -o go-template='{{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
-```
-
-## Access URLs
+The URL structure of the URLs will depend on the type of routing you set in the configuration. Examples of the set of URLs that can be outputted are below:
 
 **Domain-based routing** (default):
 
@@ -358,6 +267,27 @@ kubectl get secrets -n keycloak keycloak-user-config -o go-template='{{range $k,
 - Keycloak: `https://YOUR_DOMAIN/keycloak`
 - Argo Workflows: `https://YOUR_DOMAIN/argo-workflows`
 
+### 5. Access Backstage
+
+Once the Keycloak and Backstage are installed, check you can login to the Backstage UI with a default user:
+
+```bash
+# Get user passwords
+kubectl get secrets -n keycloak keycloak-user-config -o go-template='{{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
+```
+
+## Usage Examples
+
+See [DEMO.md](docs/DEMO.md) for usage examples.
+
+## Update Component Configurations
+
+If you want to try customising component configurations, you can do so by updating the `packages/addons/values.yaml` file and using `task sync` to apply the updates.
+
+### Backstage Templates
+
+Backstage templates can be found in the `templates/` directory
+
 ## Uninstall
 
 ```bash
@@ -367,12 +297,6 @@ task uninstall
 # Clean up GitHub App and tokens manually
 # Delete the GitHub organization if no longer needed
 ```
-
-## What's Next?
-
-- See [DEMO.md](docs/DEMO.md) for usage examples
-- Explore the Backstage templates in the `templates/` directory
-- Customize component configurations in `packages/addons/values.yaml`
 
 ## Contributing
 
