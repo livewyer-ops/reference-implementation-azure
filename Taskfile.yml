@@ -11,6 +11,18 @@ env:
 vars:
   CONFIG_FILE: "{{.ROOT_DIR}}/config.yaml"
   CONFIG_SCHEMA: "{{.ROOT_DIR}}/config.schema.yaml"
+  REQUIRED_CLIS:
+    - az
+    - kubectl
+    - kubelogin
+    - yq
+    - jq
+    - curl
+    - git
+    - helm
+    - helmfile
+    - task
+    - yamale
   SUBSCRIPTION_ID:
     sh: yq '.subscription' "{{.CONFIG_FILE}}"
   RESOURCE_GROUP:
@@ -28,6 +40,9 @@ vars:
 tasks:
   init:
     cmds:
+      - cmd: bash command -V {{.ITEM}}
+        for:
+          var: REQUIRED_CLIS
       - task: config:lint
       - task: helmfile:init
       - task: helmfile:lint
