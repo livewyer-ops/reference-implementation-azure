@@ -10,6 +10,7 @@ env:
 
 vars:
   CONFIG_FILE: "{{.ROOT_DIR}}/config.yaml"
+  CONFIG_SCHEMA: "{{.ROOT_DIR}}/config.schema.yaml"
   SUBSCRIPTION_ID:
     sh: yq '.subscription' "{{.CONFIG_FILE}}"
   RESOURCE_GROUP:
@@ -26,11 +27,8 @@ vars:
 
 tasks:
   init:
-    deps:
-      - update:kubeconfig
-    preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
     cmds:
+      - task: config:lint
       - task: helmfile:init
       - task: helmfile:lint
       - task: helmfile:build
@@ -39,7 +37,7 @@ tasks:
     deps:
       - update:kubeconfig
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - task: azure:creds
       - task: helmfile
@@ -49,7 +47,7 @@ tasks:
     deps:
       - update:kubeconfig
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - task: helmfile:diff
 
@@ -57,10 +55,14 @@ tasks:
     deps:
       - update:kubeconfig
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - task: helmfile:sync
       - task: update
+
+  config:lint:
+    cmds:
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
 
   get:urls:
     deps:
@@ -74,7 +76,7 @@ tasks:
       - task: update:kubeconfig
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - task: update:secret
 
@@ -83,7 +85,7 @@ tasks:
       - task: update:kubeconfig
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - task: update:secret:azure
       - task: wait
@@ -99,7 +101,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       TENANT_ID:
         sh: az identity show {{.AZ_CLI_OPTS}} --name external-dns --query "tenantId" --output tsv
@@ -116,7 +118,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       SECRET_TEMP:
         sh: mktemp
@@ -147,7 +149,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - az aks get-credentials {{.AZ_CLI_OPTS}} --name "{{.CLUSTER_NAME}}" --overwrite-existing
 
@@ -158,7 +160,7 @@ tasks:
 
   azure:init:
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - az account set --subscription "{{.SUBSCRIPTION_ID}}"
       - az config set defaults.location="{{.LOCATION}}" defaults.group="{{.RESOURCE_GROUP}}" {{.AZ_CLI_OPTS}}
@@ -168,7 +170,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       ENABLED:
         sh: yq '[select(.crossplane_workload_identity.create==true)] | length' "{{.CONFIG_FILE}}"
@@ -183,7 +185,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       IDENTITY_NAME: crossplane
       CLIENT_ID:
@@ -201,7 +203,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       IDENTITY_NAME: crossplane
       IDENTITY_NAMESPACE: crossplane-system
@@ -241,7 +243,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     vars:
       ENABLED:
         sh: yq '[select(.crossplane_workload_identity.create==true)] | length' "{{.CONFIG_FILE}}"
@@ -325,7 +327,7 @@ tasks:
       KUBECONFIG:
         sh: echo ${HOME}/.kube/config
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - |
         az aks create \
@@ -344,7 +346,7 @@ tasks:
 
   test:config:update:
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - yq -i e '.cluster_oidc_issuer_url |= "{{.OIDC_ISSUER}}"' "{{.CONFIG_FILE}}"
 
@@ -353,7 +355,7 @@ tasks:
       - task: azure:init
         silent: true
     preconditions:
-      - yq 'true' "{{.CONFIG_FILE}}"
+      - yamale -s "{{.CONFIG_SCHEMA}}" "{{.CONFIG_FILE}}"
     cmds:
       - az aks delete --name "{{.CLUSTER_NAME}}" --yes {{.CLI_ARGS}}
 
