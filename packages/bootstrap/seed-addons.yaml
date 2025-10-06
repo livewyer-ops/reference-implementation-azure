@@ -1,0 +1,214 @@
+argocd:
+  enabled: true
+  chartName: argo-cd
+  namespace: argocd
+  releaseName: argocd
+  defaultVersion: "8.0.14"
+  chartRepository: "https://argoproj.github.io/argo-helm"
+  valuesObject:
+    dex:
+      enabled: false
+    server:
+      ingress:
+        enabled: true
+        hostname: "argocd.local.{{ .metadata.annotations.domain }}"
+
+ingress-nginx:
+  enabled: true
+  chartName: ingress-nginx
+  namespace: ingress-nginx
+  releaseName: ingress-nginx
+  defaultVersion: "4.7.0"
+  chartRepository: "https://kubernetes.github.io/ingress-nginx"
+  valuesObject:
+    controller:
+      kind: DaemonSet
+      extraArgs:
+        report-node-internal-ip-address: true
+      ingressClassResource:
+        default: true
+      watchIngressWithoutClass: true
+      service:
+        type: NodePort
+        nodePorts:
+          http: 30080
+          https: 30443
+      hostPort:
+        enabled: true
+        ports:
+          http: 80
+          https: 443
+      nodeSelector:
+        ingress-ready: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+
+crossplane:
+  enabled: true
+  chartName: crossplane
+  namespace: crossplane-system
+  releaseName: crossplane
+  defaultVersion: "2.0.2-up.4"
+  chartRepository: "https://charts.upbound.io/stable"
+  valuesObject:
+    extraObjects:
+      - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+        kind: ClusterProviderConfig
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+          name: default
+        spec:
+          credentials:
+            source: InjectedIdentity
+      - apiVersion: azure.m.upbound.io/v1beta1
+        kind: ClusterProviderConfig
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+          name: default
+        spec:
+          credentials:
+            source: Secret
+            secretRef:
+              key: credentails
+              name: provider-azure
+              namespace: crossplane-system
+      - apiVersion: network.azure.m.upbound.io/v1beta1
+        kind: DNSZone
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+            cnoe.io/domain: "{{ .metadata.annotations.domain }}"
+          labels:
+            cnoe.io/domain: "{{ .metadata.annotations.domain }}"
+          name: "{{ .metadata.annotations.domain }}"
+        spec:
+          managementPolicies: ["Update", "Observe"]
+          forProvider:
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+      - apiVersion: network.azure.m.upbound.io/v1beta1
+        kind: DNSARecord
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+            cnoe.io/domain: "{{ .metadata.annotations.domain }}"
+          labels:
+            cnoe.io/domain: "{{ .metadata.annotations.domain }}"
+          name: "wildcard.local.{{ .metadata.annotations.domain }}"
+        spec:
+          managementPolicies: ["Update", "Observe"]
+          forProvider:
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            records:
+              - 127.0.0.1
+            ttl: 3600
+            zoneNameRef:
+              name: "{{ .metadata.annotations.domain }}"
+      - apiVersion: keyvault.azure.m.upbound.io/v1beta1
+        kind: Vault
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+            cnoe.io/keyvault: "{{ .metadata.annotations.keyvault }}"
+          labels:
+            cnoe.io/keyvault: "{{ .metadata.annotations.keyvault }}"
+          name: "{{ .metadata.annotations.keyvault }}"
+        spec:
+          managementPolicies: ["Create", "Update", "Observe"]
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            tenantId: "{{ .metadata.annotations.tenantId }}"
+            enableRbacAuthorization: true
+            skuName: standard
+            softDeleteRetentionDays: 7
+      - apiVersion: keyvault.azure.m.upbound.io/v1beta1
+        kind: Secret
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+            cnoe.io/keyvault: "{{ .metadata.annotations.keyvault }}"
+          labels:
+            cnoe.io/keyvault: "{{ .metadata.annotations.keyvault }}"
+          name: "{{ .metadata.annotations.keyvault }}"
+        spec:
+          managementPolicies: ["Create", "Update", "Observe"]
+          forProvider:
+            name: config
+            keyVaultIdRef:
+              name: "{{ .metadata.annotations.keyvault }}"
+            valueSecretRef:
+              key: config.json
+              name: cnoe-config
+      - apiVersion: containerservice.azure.m.upbound.io/v1beta1
+        kind: KubernetesCluster
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+            cnoe.io/cluster: "{{ .metadata.annotations.clusterName }}"
+          labels:
+            cnoe.io/cluster: "{{ .metadata.annotations.clusterName }}"
+          name: "{{ .metadata.annotations.clusterName }}"
+        spec:
+          managementPolicies: ["Update", "Observe"]
+          writeConnectionSecretToRef:
+            name: cnoe-kubeconfig
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            oidcIssuerEnabled: true
+            workloadIdentityEnabled: true
+            defaultNodePool: {}
+      - apiVersion: azure.livewyer.io/v1alpha1
+        kind: WorkloadIdentity
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+          labels:
+            cnoe.io/cluster: "{{ .metadata.annotations.clusterName }}"
+          name: crossplane
+        spec:
+          managementPolicies: ["Create", "Update", "Observe"]
+          forProvider:
+            location: "{{ .metadata.annotations.location }}"
+            oidcIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+            resourceGroupName: "{{ .metadata.annotations.resourceGroup }}"
+            roleAssignments:
+              - roleDefinitionName: Owner
+                scope: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}"
+            serviceAccountName: cnoe-crossplane-sa
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: provider-kubernetes-config
+          namespace: crossplane-system
+          annotations:
+            argocd.argoproj.io/sync-wave: "50"
+        spec:
+          template:
+            spec:
+              serviceAccountName: upbound-controller-manager
+              restartPolicy: Never
+              containers:
+                - name: provider-kubernetes-config
+                  image: docker.io/bitnamilegacy/kubectl
+                  command: ["/bin/bash", "-c"]
+                  args:
+                    - |
+                      #! /bin/bash
+                      set -e -o pipefail
+
+                      while [[ $(kubectl -n crossplane-system get sa -o yaml | yq '[.items[] | select(.metadata.name=="*provider-kubernetes*")] | length') -eq 0 ]]; do
+                        sleep 5
+                      done
+                      SA=$(kubectl -n crossplane-system get sa -o yaml | yq '.items[] | select(.metadata.name=="*provider-kubernetes*").metadata.name')
+                      kubectl create clusterrolebinding provider-kubernetes-admin-binding \
+                        --clusterrole cluster-admin \
+                        --serviceaccount="crossplane-system:${SA}" && \
+                      echo "Done" || echo "Error"

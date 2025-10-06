@@ -45,6 +45,8 @@ crossplane:
   defaultVersion: "2.0.2-up.4"
   chartRepository: "https://charts.upbound.io/stable"
   valuesObject:
+    customLabels:
+      azure.workload.identity/use: "true"
     serviceAccount:
       customAnnotations:
         azure.workload.identity/client-id: "{{ .metadata.annotations.crossplaneClientId }}"
@@ -130,6 +132,15 @@ ingress-nginx:
   releaseName: ingress-nginx
   defaultVersion: "4.7.0"
   chartRepository: "https://kubernetes.github.io/ingress-nginx"
+  valuesObject:
+    controller:
+      service:
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+        targetPorts:
+          https: "https"
   selector:
     matchExpressions:
       - key: environment
