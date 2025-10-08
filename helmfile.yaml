@@ -17,11 +17,11 @@ releases:
     values:
       - packages/bootstrap/argocd.yaml.gotmpl
     suppressDiff: true
-  - name: cnoe-seed-appset
+  - name: bootstrap
     namespace: argocd
     chart: packages/appset-chart
     values:
-      - packages/bootstrap/seed-addons.yaml
+      - packages/bootstrap/bootstrap-addons.yaml
     disableValidationOnInstall: true
     suppressDiff: true
     needs:

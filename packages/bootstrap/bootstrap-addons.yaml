@@ -1,36 +1,120 @@
 cnoe:
   enabled: true
-  chartName: appset
-  path: packages/charts/appset
+  project: cnoe-bootstrap
+  chartName: appset-chart
+  path: packages/appset-chart
   namespace: argocd
   releaseName: cnoe
   defaultVersion: 0.1.0
   selectorMatchLabels:
     cnoe.io/cluster: cnoe
   valueFiles:
-    - ../../bootstrap/cnoe-addons.yaml
-    - ../../addons/values.yaml
+    - ../bootstrap/cnoe-addons.yaml
+    - ../addons/values.yaml
 
-argocd:
+argocd-local:
   enabled: true
   chartName: argo-cd
   namespace: argocd
   releaseName: argocd
   defaultVersion: "8.0.14"
   chartRepository: "https://argoproj.github.io/argo-helm"
+  selectorMatchLabels:
+    cnoe.io/cluster: bootstrap
   valuesObject:
-    dex:
-      enabled: false
+    global:
+      domain: "argocd.local.{{ .metadata.annotations.domain }}"
     configs:
       params:
         server.insecure: true
-    server:
-      ingress:
-        enabled: true
-        hostname: "argocd.local.{{ .metadata.annotations.domain }}"
   additionalResources:
     - manifestPath: ../bootstrap/manifests
       type: manifests
+
+argocd:
+  enabled: true
+  project: cnoe-bootstrap
+  chartName: argo-cd
+  namespace: argocd
+  releaseName: argocd
+  defaultVersion: "8.0.14"
+  chartRepository: "https://argoproj.github.io/argo-helm"
+  selectorMatchLabels:
+    cnoe.io/cluster: cnoe
+  valuesObject:
+    global:
+      domain: '{{ if eq .metadata.annotations.pathRouting "true" }}{{ .metadata.annotations.domain }}{{ else }}argocd.{{ .metadata.annotations.domain }}{{ end }}'
+    server:
+      ingress:
+        annotations:
+          cert-manager.io/cluster-issuer: '{{ if eq .metadata.annotations.pathRouting "false" }}letsencrypt-{{ .metadata.annotations.letsencryptEnv }}{{ end }}'
+        path: '/{{ if eq .metadata.annotations.pathRouting "true" }}argocd{{ end }}'
+    configs:
+      cm:
+        oidc.config: |
+          name: Keycloak
+          issuer: https://{{ if eq .metadata.annotations.pathRouting "false" }}keycloak.{{ .metadata.annotations.domain }}{{ else }}{{ .metadata.annotations.domain }}/keycloak{{ end }}/realms/cnoe
+          clientID: argocd
+          enablePKCEAuthentication: true
+          requestedScopes:
+            - openid
+            - profile
+            - email
+            - groups
+      params:
+        "server.basehref": '/{{ if eq .metadata.annotations.pathRouting "true" }}argocd{{ end }}'
+        "server.rootpath": '{{ if eq .metadata.annotations.pathRouting "true" }}argocd{{ end }}'
+    extraObjects:
+      - apiVersion: v1
+        kind: Secret
+        type: Opaque
+        metadata:
+          name: cnoe
+          labels:
+            argocd.argoproj.io/secret-type: cluster
+            environment: "control-plane"
+          annotations:
+            addonsRepoURL: "{{ .metadata.annotations.addonsRepoURL }}"
+            addonsRepoRevision: "{{ .metadata.annotations.addonsRepoRevision }}"
+            addonsRepoBasepath: "{{ .metadata.annotations.addonsRepoBasepath }}"
+            subscription: "{{ .metadata.annotations.subscription }}"
+            location: "{{ .metadata.annotations.location }}"
+            resourceGroup: "{{ .metadata.annotations.resourceGroup }}"
+            tenantId: "{{ .metadata.annotations.tenantId }}"
+            clusterName: "{{ .metadata.annotations.clusterName }}"
+            clusterOIDCIssuerURL: "{{ .metadata.annotations.clusterOIDCIssuerURL }}"
+            domain: "{{ .metadata.annotations.domain }}"
+            keyvault: "{{.metadata.annotations.keyvault}}"
+            pathRouting: "{{ .metadata.annotations.pathRouting }}"
+            environment: "control-plane"
+            crossplaneClientId: "{{ .metadata.annotations.crossplaneClientId }}"
+            crossplaneTenantId: "{{ .metadata.annotations.crossplaneTenantId }}"
+            letsencryptEnv: "{{ .metadata.annotations.letsencryptEnv }}"
+            cnoeCluster: cnoe
+        stringData:
+          name: "{{ .metadata.annotations.clusterName }}"
+          server: https://kubernetes.default.svc
+      - apiVersion: v1
+        kind: Secret
+        type: Opaque
+        metadata:
+          name: github-app-org
+          labels:
+            argocd.argoproj.io/secret-type: repo-creds
+        stringData:
+          type: git
+          url: "{{ .metadata.annotations.githubOrgUrl }}"
+          githubAppID: "{{ .metadata.annotations.githubAppID }}"
+          githubAppInstallationID: "{{ .metadata.annotations.githubAppInstallationID }}"
+          githubClientID: "{{ .metadata.annotations.githubClientID }}"
+          githubClientSecret: "{{ .metadata.annotations.githubClientSecret }}"
+          githubWebhookURL: "{{ .metadata.annotations.githubWebhookURL }}"
+          githubWebhookSecret: "{{ .metadata.annotations.githubWebhookSecret }}"
+          githubAppPrivateKey: |
+            {{ .metadata.annotations.githubAppPrivateKey }}
+  additionalResources:
+    - manifestPath: "manifests"
+      type: "manifests"
 
 ingress-nginx:
   enabled: true
@@ -38,6 +122,8 @@ ingress-nginx:
   namespace: ingress-nginx
   releaseName: ingress-nginx
   defaultVersion: "4.7.0"
+  selectorMatchLabels:
+    cnoe.io/cluster: bootstrap
   chartRepository: "https://kubernetes.github.io/ingress-nginx"
   valuesObject:
     controller:
@@ -72,6 +158,8 @@ external-secrets:
   namespace: external-secrets
   chartName: external-secrets
   defaultVersion: "0.17.0"
+  selectorMatchLabels:
+    cnoe.io/cluster: bootstrap
   chartRepository: "https://charts.external-secrets.io"
   valuesObject:
     podLabels: {}
@@ -125,14 +213,14 @@ crossplane:
   namespace: crossplane-system
   releaseName: crossplane
   defaultVersion: "2.0.2-up.4"
+  selectorMatchLabels:
+    cnoe.io/cluster: bootstrap
   chartRepository: "https://charts.upbound.io/stable"
   valuesObject:
     extraObjects:
       - apiVersion: networking.k8s.io/v1
         kind: Ingress
         metadata:
-          annotations:
-            nginx.ingress.kubernetes.io/ssl-redirect: "false"
           name: crossplane-dashboard
         spec:
           rules:
