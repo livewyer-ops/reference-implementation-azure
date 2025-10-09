@@ -66,7 +66,9 @@ This repository provides a reference implementation for deploying Cloud Native O
   kubectl apply -f seed/seed-kickoff.yaml
   kubectl apply -f seed/seed-infrastructure-claim.yaml   # populated from the example template
   ```
-- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record). The Helm provider expects the remote AKS kubeconfig to be available in `crossplane-system/<clusterConnectionSecretName>`; create this secret manually from the existing kubeconfig before applying the claim.
+- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record) and installs Argo CD plus the ApplicationSet controller via `provider-helm` releases. All chart values (domain, repo metadata, GitHub App credentials) come from the claim parameters.
+- Provide an accessible Helm repository for the ApplicationSet chart (set `appsetChartRepository`, `appsetChartName`, and `appsetChartVersion` in the claim). This can point to an OCI registry or a static chart archive you publish.
+- The Helm provider expects the remote AKS kubeconfig to be available in `crossplane-system/<clusterConnectionSecretName>`; create this secret manually from the existing kubeconfig before applying the claim.
 - Track progress with:
   ```bash
   kubectl get seedinfrastructureclaims.platform.livewyer.io
@@ -339,15 +341,21 @@ See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and detailed
 
 ## Manual Seed Bootstrap
 
-The Taskfile-based seed flow has been retired. Use the manual KinD instructions in
-[`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
+The Taskfile-based seed flow has been retired. Use the minimal helper script or the manual KinD
+instructions in [`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
+
+```bash
+./bootstrap.sh                         # expects private/kubeconfig to exist
+# or REMOTE_KUBECONFIG=/path/to/aks kubeconfig ./bootstrap.sh
+```
 
 Prepare the claim manifest (located under `seed/`):
 
 1. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`, then replace
-   every placeholder with the values from your environment (`domain`, `resourceGroup`, `keyVaultName`,
-   `location`, `tenantId`, `clientId`, `subscriptionId`, `clientSecret`, `clusterName`, etc.). **Do not
-   commit the populated file; it contains credentials.**
+   every placeholder with the values from your environment (Azure identifiers, repo metadata, GitHub App
+   credentials, ApplicationSet chart location, etc.). Publish your ApplicationSet chart (e.g. an OCI
+   artifact or static `.tgz`) and update `appsetChartRepository/appsetChartName/appsetChartVersion`
+   accordingly. **Do not commit the populated file; it contains credentials and private keys.**
 
 Create the kubeconfig secret referenced by your claim (defaults to `cnoe-kubeconfig`) using the credentials you already fetched for the remote cluster:
 

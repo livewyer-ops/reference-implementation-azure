@@ -78,6 +78,8 @@ spec:
                       type: string
                     clusterName:
                       type: string
+                    clusterOidcIssuerUrl:
+                      type: string
                     wildcardAddress:
                       type: string
                       default: 127.0.0.1
@@ -87,6 +89,40 @@ spec:
                     clusterConnectionSecretName:
                       type: string
                       default: cnoe-kubeconfig
+                    repoUrl:
+                      type: string
+                    repoRevision:
+                      type: string
+                    repoBasePath:
+                      type: string
+                    pathRouting:
+                      type: string
+                      default: "false"
+                    letsencryptEnv:
+                      type: string
+                      default: prod
+                    githubAppId:
+                      type: string
+                    githubAppInstallationId:
+                      type: string
+                    githubOrgUrl:
+                      type: string
+                    githubClientId:
+                      type: string
+                    githubClientSecret:
+                      type: string
+                    githubWebhookUrl:
+                      type: string
+                    githubWebhookSecret:
+                      type: string
+                    githubPrivateKey:
+                      type: string
+                    appsetChartRepository:
+                      type: string
+                    appsetChartName:
+                      type: string
+                    appsetChartVersion:
+                      type: string
                   required:
                     - domain
                     - resourceGroup
@@ -97,6 +133,18 @@ spec:
                     - clientSecret
                     - subscriptionId
                     - clusterName
+                    - clusterOidcIssuerUrl
+                    - repoUrl
+                    - repoRevision
+                    - repoBasePath
+                    - githubAppId
+                    - githubAppInstallationId
+                    - githubOrgUrl
+                    - githubClientId
+                    - githubClientSecret
+                    - appsetChartRepository
+                    - appsetChartName
+                    - appsetChartVersion
               required:
                 - parameters
 ---
@@ -190,6 +238,51 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.tenantId
                 toFieldPath: spec.forProvider.tenantId
+          - name: cnoeConfigSecret
+            base:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: cnoe-config
+                namespace: crossplane-system
+              type: Opaque
+              stringData:
+                config.json: ""
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.configSecretName
+                toFieldPath: metadata.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.repoUrl
+                    - fromFieldPath: spec.parameters.repoRevision
+                    - fromFieldPath: spec.parameters.repoBasePath
+                    - fromFieldPath: spec.parameters.clusterName
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.location
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.domain
+                    - fromFieldPath: spec.parameters.keyVaultName
+                    - fromFieldPath: spec.parameters.pathRouting
+                    - fromFieldPath: spec.parameters.letsencryptEnv
+                    - fromFieldPath: spec.parameters.githubAppId
+                    - fromFieldPath: spec.parameters.githubAppInstallationId
+                    - fromFieldPath: spec.parameters.githubOrgUrl
+                    - fromFieldPath: spec.parameters.githubClientId
+                    - fromFieldPath: spec.parameters.githubClientSecret
+                    - fromFieldPath: spec.parameters.githubWebhookUrl
+                    - fromFieldPath: spec.parameters.githubWebhookSecret
+                    - fromFieldPath: spec.parameters.clientId
+                    - fromFieldPath: spec.parameters.tenantId
+                    - fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                  strategy: string
+                  string:
+                    fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s"},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
+                toFieldPath: stringData[config.json]
           - name: azureServicePrincipalSecret
             base:
               apiVersion: v1
@@ -264,3 +357,200 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.clusterConnectionSecretName
                 toFieldPath: spec.credentials.secretRef.name
+          - name: argocdRelease
+            base:
+              apiVersion: helm.crossplane.io/v1beta1
+              kind: Release
+              metadata:
+                name: argocd
+                namespace: crossplane-system
+              spec:
+                providerConfigRef:
+                  name: remote-aks
+                forProvider:
+                  namespace: argocd
+                  chart:
+                    name: argo-cd
+                    repository: https://argoproj.github.io/argo-helm
+                    version: 8.0.14
+                  values:
+                    server:
+                      ingress:
+                        enabled: true
+                        hostname: argocd.local
+                    extraObjects:
+                      - apiVersion: v1
+                        kind: Secret
+                        type: Opaque
+                        metadata:
+                          name: cnoe
+                          labels:
+                            argocd.argoproj.io/secret-type: cluster
+                            environment: control-plane
+                          annotations:
+                            addonsRepoURL: ""
+                            addonsRepoRevision: ""
+                            addonsRepoBasepath: ""
+                            subscription: ""
+                            location: ""
+                            resourceGroup: ""
+                            tenantId: ""
+                            clusterName: ""
+                            clusterOIDCIssuerURL: ""
+                            domain: ""
+                            keyvault: ""
+                            pathRouting: ""
+                            environment: control-plane
+                            crossplaneClientId: ""
+                            crossplaneTenantId: ""
+                            letsencryptEnv: ""
+                        stringData:
+                          name: ""
+                          server: https://kubernetes.default.svc
+                      - apiVersion: v1
+                        kind: Secret
+                        type: Opaque
+                        metadata:
+                          name: github-app-org
+                          labels:
+                            argocd.argoproj.io/secret-type: repo-creds
+                        stringData:
+                          type: git
+                          url: ""
+                          githubAppID: ""
+                          githubAppInstallationID: ""
+                          githubClientID: ""
+                          githubClientSecret: ""
+                          githubWebhookURL: ""
+                          githubWebhookSecret: ""
+                          githubAppPrivateKey: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.domain
+                  strategy: string
+                  string:
+                    fmt: "argocd.local.%s"
+                toFieldPath: spec.forProvider.values.server.ingress.hostname
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoUrl
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[addonsRepoURL]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoRevision
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[addonsRepoRevision]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoBasePath
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[addonsRepoBasepath]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.subscriptionId
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[subscription]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[location]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[resourceGroup]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[tenantId]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterName
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[clusterName]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[clusterOIDCIssuerURL]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.domain
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[domain]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keyVaultName
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[keyvault]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.pathRouting
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[pathRouting]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.letsencryptEnv
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[letsencryptEnv]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientId
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[crossplaneClientId]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[crossplaneTenantId]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterName
+                toFieldPath: spec.forProvider.values.extraObjects[0].stringData.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoUrl
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.url
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubAppId
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubAppID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubAppInstallationId
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubAppInstallationID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubClientId
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubClientID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubClientSecret
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubClientSecret
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubWebhookUrl
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubWebhookURL
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubWebhookSecret
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubWebhookSecret
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.githubPrivateKey
+                toFieldPath: spec.forProvider.values.extraObjects[1].stringData.githubAppPrivateKey
+          - name: appsetRelease
+            base:
+              apiVersion: helm.crossplane.io/v1beta1
+              kind: Release
+              metadata:
+                name: cnoe-appsets
+                namespace: crossplane-system
+              spec:
+                providerConfigRef:
+                  name: remote-aks
+                forProvider:
+                  namespace: argocd
+                  chart:
+                    name: ""
+                    repository: ""
+                    version: ""
+                  values:
+                    repoURLGit: ""
+                    repoURLGitRevision: ""
+                    repoURLGitBasePath: ""
+                    pathRouting: ""
+                    letsencryptEnv: ""
+                    podSecurityPolicy:
+                      enabled: false
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.appsetChartName
+                toFieldPath: spec.forProvider.chart.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.appsetChartRepository
+                toFieldPath: spec.forProvider.chart.repository
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.appsetChartVersion
+                toFieldPath: spec.forProvider.chart.version
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoUrl
+                toFieldPath: spec.forProvider.values.repoURLGit
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoRevision
+                toFieldPath: spec.forProvider.values.repoURLGitRevision
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.repoBasePath
+                toFieldPath: spec.forProvider.values.repoURLGitBasePath
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.pathRouting
+                toFieldPath: spec.forProvider.values.pathRouting
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.letsencryptEnv
+                toFieldPath: spec.forProvider.values.letsencryptEnv

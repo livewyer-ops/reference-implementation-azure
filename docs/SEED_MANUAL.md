@@ -2,6 +2,8 @@
 
 This runbook describes how to execute the seed phase without relying on the local Taskfile targets. It assumes you have already populated `config.yaml` and obtained an Azure service principal capable of interacting with the target subscription.
 
+> Shortcut: run `./bootstrap.sh` (optionally overriding `REMOTE_KUBECONFIG` or `CLUSTER_CONNECTION_SECRET_NAME`) to execute the steps below as a single flow.
+
 > :warning: The Azure client secret and generated JSON file should **never** be committed. Store them securely and delete the temporary files as soon as the run completes.
 
 > Prefer the commands below. You only need to edit the example claim and then run
@@ -54,11 +56,12 @@ kubectl create secret generic cnoe-kubeconfig \
 
 ### 5. Create the SeedInfrastructure claim
 
-Copy the sample claim, update it with your environment values (matching `config.yaml`), and apply it:
+Copy the sample claim, update it with your environment values (Azure identifiers, Git repo metadata, GitHub App credentials, ApplicationSet chart location, etc.), and apply it:
 
 ```bash
 cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
-${EDITOR:-vim} seed/seed-infrastructure-claim.yaml  # fill each parameter (domain, subscription, tenant, client IDs, etc.)
+${EDITOR:-vim} seed/seed-infrastructure-claim.yaml  # fill each parameter (Azure IDs, repo settings, GitHub App values, chart repo, etc.)
+# Publish the ApplicationSet chart somewhere accessible and update appsetChartRepository/appsetChartName/appsetChartVersion.
 kubectl apply -f seed/seed-infrastructure-claim.yaml
 ```
 

@@ -6,7 +6,15 @@
 - `packages/` houses ArgoCD application bundles (`values.yaml(.gotmpl)` plus manifests), while `templates/` serves Backstage and workflow scaffolder assets; `docs/` supplies reference material and `private/` remains gitignored for kubeconfigs or temporary credentials.
 
 ## Seed Workflow Quick Start
-1. **Create a clean KinD cluster**
+1. **Run the helper script (preferred)**
+   ```bash
+   ./bootstrap.sh
+   ```
+   The script defaults to `private/kubeconfig`; override with `REMOTE_KUBECONFIG=/path/to/file` if needed.
+   
+   **Manual flow (equivalent steps)**
+   
+   1. **Create a clean KinD cluster**
    ```bash
    kind create cluster --config kind.yaml --name seed
    kind get kubeconfig --name seed > private/seed-kubeconfig
@@ -31,7 +39,8 @@
 5. **Populate and apply the claim**
    ```bash
    cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
-   ${EDITOR:-vim} seed/seed-infrastructure-claim.yaml   # fill every placeholder (domain, resourceGroup, keyVaultName, location, tenantId, clientId, clientSecret, subscriptionId, clusterName, etc.)
+   ${EDITOR:-vim} seed/seed-infrastructure-claim.yaml   # fill every placeholder (Azure IDs, repo metadata, GitHub App credentials, chart repo, etc.)
+   # Ensure you publish the ApplicationSet chart and point appsetChartRepository/appsetChartName/appsetChartVersion accordingly.
    kubectl apply -f seed/seed-infrastructure-claim.yaml
    ```
 6. **Monitor reconciliation**

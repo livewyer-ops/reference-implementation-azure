@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  application-sets:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-10-09T15:14:26.601568526+01:00"
+    description: A Helm chart for Kubernetes
+    digest: 040652c7ca8c4bf8a76006e9ab882e00a2bef8928e73d92248f4fbaf4d7dd57f
+    name: application-sets
+    type: application
+    urls:
+    - https://raw.githubusercontent.com/livewyer-ops/reference-implementation-azure/v2-seeding-codex/charts/application-sets-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-10-09T15:14:26.601209777+01:00"
