@@ -29,5 +29,6 @@ The following is the LiveWyer Cloud Native Operational Engineering Standards (Ca
 * Try to avoid creating scripts to orchestrate actions and create minimise entry points which consist of 4 or less commands
 * Kubernetes resources are typically packaged with helm unless we have minimal templating requirements and all config can be placed in a signle file for kubectl apply
 * Any helm deployments from the console will be managed via a helmfile
-
-
+* Don't change component versions unless confirmed by user  Provide clear reason for version change
+* Do not manually create resources, unless temporarily testing something all resources must be applied via the codebase that is meant to apply them rather then hacking a quick fix, progress is measured in working code not immediate patches
+* We start with the latest version of all software, components and dependencies and only revert back to old versions if we have a clear need to do so which is confirmed by the end user

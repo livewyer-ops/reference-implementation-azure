@@ -11,10 +11,98 @@ metadata:
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
-  name: provider-azure
+  name: provider-azure-authorization
 spec:
-  package: xpkg.upbound.io/upbound/provider-azure:v0.30.0
+  package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.1.0
   packagePullPolicy: IfNotPresent
+  skipDependencyResolution: true
+---
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: azure-authorization
+spec:
+  subscriptionID: ""
+  tenantID: ""
+  clientID: ""
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-service-principal
+      key: credentials
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-keyvault
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-keyvault:v2.1.0
+  packagePullPolicy: IfNotPresent
+  skipDependencyResolution: true
+---
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: azure-keyvault
+spec:
+  subscriptionID: ""
+  tenantID: ""
+  clientID: ""
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-service-principal
+      key: credentials
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-managedidentity
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.1.0
+  packagePullPolicy: IfNotPresent
+  skipDependencyResolution: true
+---
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: azure-managedidentity
+spec:
+  subscriptionID: ""
+  tenantID: ""
+  clientID: ""
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-service-principal
+      key: credentials
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-network
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-network:v2.1.0
+  packagePullPolicy: IfNotPresent
+  skipDependencyResolution: true
+---
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: azure-network
+spec:
+  subscriptionID: ""
+  tenantID: ""
+  clientID: ""
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-service-principal
+      key: credentials
 ---
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
@@ -117,6 +205,18 @@ spec:
                       type: string
                     githubPrivateKey:
                       type: string
+                    crossplaneIdentityName:
+                      type: string
+                      default: crossplane
+                    externalDnsIdentityName:
+                      type: string
+                      default: external-dns
+                    externalSecretsIdentityName:
+                      type: string
+                      default: external-secrets
+                    keycloakIdentityName:
+                      type: string
+                      default: keycloak
                     appsetChartRepository:
                       type: string
                     appsetChartName:
@@ -147,6 +247,48 @@ spec:
                     - appsetChartVersion
               required:
                 - parameters
+            status:
+              type: object
+              properties:
+                managedIdentities:
+                  type: object
+                  properties:
+                    crossplane:
+                      type: object
+                      properties:
+                        principalId:
+                          type: string
+                        clientId:
+                          type: string
+                        tenantId:
+                          type: string
+                    externalDns:
+                      type: object
+                      properties:
+                        principalId:
+                          type: string
+                        clientId:
+                          type: string
+                        tenantId:
+                          type: string
+                    externalSecrets:
+                      type: object
+                      properties:
+                        principalId:
+                          type: string
+                        clientId:
+                          type: string
+                        tenantId:
+                          type: string
+                    keycloak:
+                      type: object
+                      properties:
+                        principalId:
+                          type: string
+                        clientId:
+                          type: string
+                        tenantId:
+                          type: string
 ---
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
@@ -174,7 +316,7 @@ spec:
                   crossplane.io/external-name: "*"
               spec:
                 providerConfigRef:
-                  name: azure-default
+                  name: azure-network
                 forProvider:
                   ttl: 3600
                   records:
@@ -211,7 +353,7 @@ spec:
                   crossplane.io/external-name: ""
               spec:
                 providerConfigRef:
-                  name: azure-default
+                  name: azure-keyvault
                 forProvider:
                   enableRbacAuthorization: true
                   skuName: standard
@@ -256,6 +398,8 @@ spec:
                 fromFieldPath: spec.parameters.configSecretName
                 toFieldPath: metadata.name
               - type: CombineFromComposite
+                policy:
+                  fromFieldPath: Optional
                 combine:
                   variables:
                     - fromFieldPath: spec.parameters.repoUrl
@@ -276,13 +420,45 @@ spec:
                     - fromFieldPath: spec.parameters.githubClientSecret
                     - fromFieldPath: spec.parameters.githubWebhookUrl
                     - fromFieldPath: spec.parameters.githubWebhookSecret
-                    - fromFieldPath: spec.parameters.clientId
-                    - fromFieldPath: spec.parameters.tenantId
+                    - fromFieldPath: status.managedIdentities.crossplane.clientId
+                    - fromFieldPath: status.managedIdentities.crossplane.tenantId
+                    - fromFieldPath: status.managedIdentities.externalDns.clientId
+                    - fromFieldPath: status.managedIdentities.externalDns.tenantId
+                    - fromFieldPath: status.managedIdentities.externalSecrets.clientId
+                    - fromFieldPath: status.managedIdentities.externalSecrets.tenantId
+                    - fromFieldPath: status.managedIdentities.keycloak.clientId
+                    - fromFieldPath: status.managedIdentities.keycloak.tenantId
                     - fromFieldPath: spec.parameters.clusterOidcIssuerUrl
                   strategy: string
                   string:
-                    fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s"},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
+                    fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s"},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"externaldns_workload_identity":{"clientId":"%s","tenantId":"%s"},"externalsecrets_workload_identity":{"clientId":"%s","tenantId":"%s"},"keycloak_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
                 toFieldPath: stringData[config.json]
+          - name: keyVaultConfigSecret
+            base:
+              apiVersion: keyvault.azure.upbound.io/v1beta1
+              kind: Secret
+              metadata:
+                name: keyvault-config
+                annotations:
+                  crossplane.io/external-name: config
+              spec:
+                providerConfigRef:
+                  name: azure-keyvault
+                forProvider:
+                  keyVaultIdRef:
+                    name: ""
+                  contentType: application/json
+                  valueSecretRef:
+                    key: config.json
+                    name: ""
+                    namespace: crossplane-system
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keyVaultName
+                toFieldPath: spec.forProvider.keyVaultIdRef.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.configSecretName
+                toFieldPath: spec.forProvider.valueSecretRef.name
           - name: azureServicePrincipalSecret
             base:
               apiVersion: v1
@@ -306,37 +482,392 @@ spec:
                     - fromFieldPath: spec.parameters.subscriptionId
                   strategy: string
                   string:
-                    fmt: '{"clientId":"%s","clientSecret":"%s","tenantId":"%s","subscriptionId":"%s"}'
-                toFieldPath: stringData.credentials
-          - name: providerConfigAzure
+          - name: userAssignedIdentityCrossplane
             base:
-              apiVersion: azure.upbound.io/v1beta1
-              kind: ProviderConfig
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
               metadata:
-                name: azure-default
+                name: crossplane
               spec:
-                subscriptionID: ""
-                tenantID: ""
-                clientID: ""
-                credentials:
-                  source: Secret
-                  secretRef:
-                    namespace: crossplane-system
-                    name: azure-service-principal
-                    key: credentials
-            readinessChecks:
-              - type: NonEmpty
-                fieldPath: metadata.uid
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
             patches:
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.subscriptionId
-                toFieldPath: spec.subscriptionID
+                fromFieldPath: spec.parameters.crossplaneIdentityName
+                toFieldPath: metadata.name
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.tenantId
-                toFieldPath: spec.tenantID
+                fromFieldPath: spec.parameters.crossplaneIdentityName
+                toFieldPath: spec.forProvider.name
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.clientId
-                toFieldPath: spec.clientID
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.crossplane.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.crossplane.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.crossplane.tenantId
+
+          - name: userAssignedIdentityExternalDns
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: external-dns
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.externalDns.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.externalDns.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.externalDns.tenantId
+
+          - name: userAssignedIdentityExternalSecrets
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: external-secrets
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.externalSecrets.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.externalSecrets.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.externalSecrets.tenantId
+
+          - name: userAssignedIdentityKeycloak
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: keycloak
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.keycloak.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.keycloak.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.keycloak.tenantId
+          - name: federatedCredentialCrossplane
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                name: crossplane
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  issuer: ""
+                  subject: system:serviceaccount:crossplane-system:crossplane
+                  audience:
+                    - api://AzureADTokenExchange
+                  resourceGroupName: ""
+                  parentIdRef:
+                    name: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.crossplaneIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                toFieldPath: spec.forProvider.issuer
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.crossplaneIdentityName
+                toFieldPath: spec.forProvider.parentIdRef.name
+          - name: federatedCredentialExternalDns
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                name: external-dns
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  issuer: ""
+                  subject: system:serviceaccount:external-dns:external-dns
+                  audience:
+                    - api://AzureADTokenExchange
+                  resourceGroupName: ""
+                  parentIdRef:
+                    name: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                toFieldPath: spec.forProvider.issuer
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: spec.forProvider.parentIdRef.name
+          - name: federatedCredentialExternalSecrets
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                name: external-secrets
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  issuer: ""
+                  subject: system:serviceaccount:external-secrets:workload-identity-sa
+                  audience:
+                    - api://AzureADTokenExchange
+                  resourceGroupName: ""
+                  parentIdRef:
+                    name: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                toFieldPath: spec.forProvider.issuer
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: spec.forProvider.parentIdRef.name
+          - name: federatedCredentialKeycloak
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                name: keycloak
+              spec:
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  issuer: ""
+                  subject: system:serviceaccount:keycloak:eso-store
+                  audience:
+                    - api://AzureADTokenExchange
+                  resourceGroupName: ""
+                  parentIdRef:
+                    name: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clusterOidcIssuerUrl
+                toFieldPath: spec.forProvider.issuer
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: spec.forProvider.parentIdRef.name
+          - name: roleAssignmentCrossplane
+            base:
+              apiVersion: authorization.azure.upbound.io/v1beta1
+              kind: RoleAssignment
+              metadata:
+                name: crossplane-owner
+              spec:
+                providerConfigRef:
+                  name: azure-authorization
+                forProvider:
+                  roleDefinitionName: Owner
+                  scope: ""
+                  principalId: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s"
+                toFieldPath: spec.forProvider.scope
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.crossplane.principalId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.principalId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.crossplaneIdentityName
+                toFieldPath: metadata.name
+          - name: roleAssignmentExternalDns
+            base:
+              apiVersion: authorization.azure.upbound.io/v1beta1
+              kind: RoleAssignment
+              metadata:
+                name: external-dns-dnszone
+              spec:
+                providerConfigRef:
+                  name: azure-authorization
+                forProvider:
+                  roleDefinitionName: DNS Zone Contributor
+                  scope: ""
+                  principalId: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.domain
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/dnszones/%s"
+                toFieldPath: spec.forProvider.scope
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.externalDns.principalId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.principalId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: metadata.name
+          - name: roleAssignmentExternalSecrets
+            base:
+              apiVersion: authorization.azure.upbound.io/v1beta1
+              kind: RoleAssignment
+              metadata:
+                name: external-secrets-kv
+              spec:
+                providerConfigRef:
+                  name: azure-authorization
+                forProvider:
+                  roleDefinitionName: Key Vault Administrator
+                  scope: ""
+                  principalId: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.keyVaultName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s"
+                toFieldPath: spec.forProvider.scope
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.externalSecrets.principalId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.principalId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: metadata.name
+          - name: roleAssignmentKeycloak
+            base:
+              apiVersion: authorization.azure.upbound.io/v1beta1
+              kind: RoleAssignment
+              metadata:
+                name: keycloak-kv
+              spec:
+                providerConfigRef:
+                  name: azure-authorization
+                forProvider:
+                  roleDefinitionName: Key Vault Administrator
+                  scope: ""
+                  principalId: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.keyVaultName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s"
+                toFieldPath: spec.forProvider.scope
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.keycloak.principalId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.principalId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: metadata.name
           - name: providerConfigHelm
             base:
               apiVersion: helm.crossplane.io/v1beta1
@@ -473,10 +1004,14 @@ spec:
                 fromFieldPath: spec.parameters.letsencryptEnv
                 toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[letsencryptEnv]
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.clientId
+                fromFieldPath: status.managedIdentities.crossplane.clientId
+                policy:
+                  fromFieldPath: Optional
                 toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[crossplaneClientId]
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.tenantId
+                fromFieldPath: status.managedIdentities.crossplane.tenantId
+                policy:
+                  fromFieldPath: Optional
                 toFieldPath: spec.forProvider.values.extraObjects[0].metadata.annotations[crossplaneTenantId]
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.clusterName

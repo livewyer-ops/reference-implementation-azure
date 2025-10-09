@@ -35,3 +35,7 @@ spec:
     githubWebhookUrl: ''
     githubWebhookSecret: ''
     githubPrivateKey: ''
+    crossplaneIdentityName: crossplane
+    externalDnsIdentityName: external-dns
+    externalSecretsIdentityName: external-secrets
+    keycloakIdentityName: keycloak

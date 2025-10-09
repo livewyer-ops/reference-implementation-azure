@@ -1,31 +1,35 @@
 # Crossplane-Driven Seed Deployment Tasks
 
 ## Objective
-Deploy the CNOE reference implementation to the remote AKS cluster using only the `SeedInfrastructure` claim so that Argo CD and the supporting AppSet are installed via Crossplane `provider-helm` releases.
+Reach full parity with the original Taskfile/Helmfile driven bootstrap by using only the `SeedInfrastructure` claim and the local Crossplane seed cluster to configure Azure identities, publish configuration to Key Vault, and deploy all CNOE addons through Argo CD/ApplicationSets.
 
-## Task 1 – Claim Inputs Audit
-- Ensure `seed/seed-infrastructure-claim.yaml.example` exposes every field required by Argo CD and the AppSet (repo URL/revision/basepath, GitHub app credentials, cluster/domain metadata, subscription, Key Vault, etc.).
-- Extend the claim schema to include any missing parameters; the claim must become the single user-edited file.
+## Task 1 – Claim Inputs & Chart Publishing ✅
+- `seed/seed-infrastructure-claim.yaml.example` now carries every field required (Azure IDs, domain, repo metadata, routing flags, GitHub App placeholders, ApplicationSet chart location).
+- The ApplicationSet chart is published under `charts/`; the claim points to the hosted index by default.
 
-## Task 2 – Secrets Derived from Claim
-- ✅ Update the `SeedInfrastructure` composition to render all static secrets from the claim parameters:
-  - `crossplane-system/cnoe-config` (JSON payload of claim settings).
-  - `argocd/cnoe` cluster secret with annotations mirroring the previous Helmfile flow.
-  - `argocd/github-app-org` repo credential secret populated from claim fields.
-  - `crossplane-system/provider-azure` and any other Crossplane provider secrets needed by downstream releases.
-- Confirm no additional config files or templates are required once these secrets are composed.
+## Task 2 – Azure Workload Identities & Role Assignments
+- Reproduce `azure:creds` and `azure:creds:get` by composing Crossplane resources that create the required Azure User Assigned Managed Identities, federated credentials, and role assignments:
+  - `crossplane` identity (Owner on the resource group) used by Crossplane providers.
+  - `external-dns`, `external-secrets`, and `keycloak` identities with the same role scopes as the Taskfile automation.
+- Expose identity client IDs/tenant IDs back into the claim outputs so helm/appset templates consume them.
+- Ensure `deletionPolicy` is set so these identities are cleaned up when the claim is removed.
 
-## Task 3 – Helm Releases via Crossplane
-- ✅ Add an Argo CD `Release` (chart `argo-cd`, version `8.0.14`) driven by the claim’s values (ingress host, namespaces, etc.).
-- ✅ Add a second `Release` for the AppSet chart sourced from `packages/charts/appset` without modifying existing package content (chart published under `charts/`).
-- Wire readiness/dependency ordering so secrets exist before the Helm releases reconcile.
+## Task 3 – Key Vault Configuration Parity
+- The Taskfile pushes `config.yaml` into Azure Key Vault (`config` secret). Add a managed resource (e.g., `keyvault.azure.upbound.io/Secret`) so the same JSON payload from the claim is written to the Key Vault identified by `keyVaultName`.
+- Confirm updates/rotations (claim reapply) refresh the Key Vault secret as the CLI did.
 
-## Task 4 – Composition Wiring & Observability
-- Emit useful connection details (Argo CD URL, repo annotations) through composed `connectionDetails`.
-- Include explicit dependencies or sync ordering inside the composition to reflect the correct reconciliation flow.
-- Validate end-to-end on a KinD seed run that both releases reach `state: deployed` using only the populated claim.
+## Task 4 – External DNS Credentials
+- Replace the pod-mounted `/etc/kubernetes/azure.json` dependency so `external-dns` can authenticate:
+  - Either reference the workload identity created in Task 2, or
+  - Compose a Secret containing the minimal Azure config sourced from the claim parameters.
+- Verify the `external-dns` Deployment leaves CrashLoopBackOff and reconciles records in the target DNS zone.
 
-## Task 5 – Bootstrap Script & Documentation
-- Keep `bootstrap.sh` minimal (KinD setup, Crossplane install, claim apply); document that the claim is the only file users edit.
-- Refresh `README.md`, `AGENTS.md`, and `docs/SEED_MANUAL.md` with the new single-claim workflow, including rotation/troubleshooting guidance for claim-managed secrets and Helm releases.
-- Remove references to the Taskfile/Helmfile flow once the Crossplane path reaches parity.
+## Task 5 – ApplicationSet Sync & Observability
+- Wait for/trigger Argo CD sync for each generated `Application` and confirm health statuses reach `Synced`.
+- Surface helpful status/connection details (e.g., Argo CD URL, repo URL) via composition outputs to aid troubleshooting.
+- Document that GitHub App values default to anonymous access (public repo) but can be overridden without altering the composition.
+
+## Task 6 – Documentation & Taskfile Retirement
+- Update README/AGENTS/dosc to describe the Azure identity + Key Vault behaviour and external-dns requirements.
+- Remove any residual instructions that reference `Taskfile.yml`/Helmfile once parity tasks above are implemented.
+- Add troubleshooting/rotation guidance (GitHub App credentials, Azure identity role scope, Key Vault secret refresh).
