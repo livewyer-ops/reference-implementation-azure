@@ -16,22 +16,6 @@ spec:
   package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.1.0
   packagePullPolicy: IfNotPresent
   skipDependencyResolution: true
----
-apiVersion: azure.upbound.io/v1beta1
-kind: ProviderConfig
-metadata:
-  name: azure-authorization
-spec:
-  subscriptionID: ""
-  tenantID: ""
-  clientID: ""
-  credentials:
-    source: Secret
-    secretRef:
-      namespace: crossplane-system
-      name: azure-service-principal
-      key: credentials
----
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -40,22 +24,6 @@ spec:
   package: xpkg.upbound.io/upbound/provider-azure-keyvault:v2.1.0
   packagePullPolicy: IfNotPresent
   skipDependencyResolution: true
----
-apiVersion: azure.upbound.io/v1beta1
-kind: ProviderConfig
-metadata:
-  name: azure-keyvault
-spec:
-  subscriptionID: ""
-  tenantID: ""
-  clientID: ""
-  credentials:
-    source: Secret
-    secretRef:
-      namespace: crossplane-system
-      name: azure-service-principal
-      key: credentials
----
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -64,22 +32,6 @@ spec:
   package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.1.0
   packagePullPolicy: IfNotPresent
   skipDependencyResolution: true
----
-apiVersion: azure.upbound.io/v1beta1
-kind: ProviderConfig
-metadata:
-  name: azure-managedidentity
-spec:
-  subscriptionID: ""
-  tenantID: ""
-  clientID: ""
-  credentials:
-    source: Secret
-    secretRef:
-      namespace: crossplane-system
-      name: azure-service-principal
-      key: credentials
----
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -88,22 +40,6 @@ spec:
   package: xpkg.upbound.io/upbound/provider-azure-network:v2.1.0
   packagePullPolicy: IfNotPresent
   skipDependencyResolution: true
----
-apiVersion: azure.upbound.io/v1beta1
-kind: ProviderConfig
-metadata:
-  name: azure-network
-spec:
-  subscriptionID: ""
-  tenantID: ""
-  clientID: ""
-  credentials:
-    source: Secret
-    secretRef:
-      namespace: crossplane-system
-      name: azure-service-principal
-      key: credentials
----
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -161,6 +97,8 @@ spec:
                     clientId:
                       type: string
                     clientSecret:
+                      type: string
+                    clientObjectId:
                       type: string
                     subscriptionId:
                       type: string
@@ -307,6 +245,147 @@ spec:
         apiVersion: pt.fn.crossplane.io/v1beta1
         kind: ResourcesConfiguration
         resources:
+          - name: azureServicePrincipalSecret
+            base:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: azure-service-principal
+                namespace: crossplane-system
+              type: Opaque
+              stringData:
+                credentials: ""
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.clientId
+                    - fromFieldPath: spec.parameters.clientSecret
+                    - fromFieldPath: spec.parameters.tenantId
+                    - fromFieldPath: spec.parameters.subscriptionId
+                  strategy: string
+                  string:
+                    fmt: '{"clientId":"%s","clientSecret":"%s","tenantId":"%s","subscriptionId":"%s"}'
+                toFieldPath: stringData[credentials]
+          - name: providerConfigAzureAuthorization
+            base:
+              apiVersion: azure.upbound.io/v1beta1
+              kind: ProviderConfig
+              metadata:
+                name: azure-authorization
+              spec:
+                subscriptionID: ""
+                tenantID: ""
+                clientID: ""
+                credentials:
+                  source: Secret
+                  secretRef:
+                    namespace: crossplane-system
+                    name: azure-service-principal
+                    key: credentials
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.subscriptionId
+                toFieldPath: spec.subscriptionID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.tenantID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientId
+                toFieldPath: spec.clientID
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+          - name: providerConfigAzureKeyVault
+            base:
+              apiVersion: azure.upbound.io/v1beta1
+              kind: ProviderConfig
+              metadata:
+                name: azure-keyvault
+              spec:
+                subscriptionID: ""
+                tenantID: ""
+                clientID: ""
+                credentials:
+                  source: Secret
+                  secretRef:
+                    namespace: crossplane-system
+                    name: azure-service-principal
+                    key: credentials
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.subscriptionId
+                toFieldPath: spec.subscriptionID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.tenantID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientId
+                toFieldPath: spec.clientID
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+          - name: providerConfigAzureManagedIdentity
+            base:
+              apiVersion: azure.upbound.io/v1beta1
+              kind: ProviderConfig
+              metadata:
+                name: azure-managedidentity
+              spec:
+                subscriptionID: ""
+                tenantID: ""
+                clientID: ""
+                credentials:
+                  source: Secret
+                  secretRef:
+                    namespace: crossplane-system
+                    name: azure-service-principal
+                    key: credentials
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.subscriptionId
+                toFieldPath: spec.subscriptionID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.tenantID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientId
+                toFieldPath: spec.clientID
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+          - name: providerConfigAzureNetwork
+            base:
+              apiVersion: azure.upbound.io/v1beta1
+              kind: ProviderConfig
+              metadata:
+                name: azure-network
+              spec:
+                subscriptionID: ""
+                tenantID: ""
+                clientID: ""
+                credentials:
+                  source: Secret
+                  secretRef:
+                    namespace: crossplane-system
+                    name: azure-service-principal
+                    key: credentials
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.subscriptionId
+                toFieldPath: spec.subscriptionID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.tenantId
+                toFieldPath: spec.tenantID
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientId
+                toFieldPath: spec.clientID
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
           - name: dnsWildcard
             base:
               apiVersion: network.azure.upbound.io/v1beta1
@@ -445,6 +524,7 @@ spec:
                 providerConfigRef:
                   name: azure-keyvault
                 forProvider:
+                  name: config
                   keyVaultIdRef:
                     name: ""
                   contentType: application/json
@@ -459,29 +539,11 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.configSecretName
                 toFieldPath: spec.forProvider.valueSecretRef.name
-          - name: azureServicePrincipalSecret
-            base:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: azure-service-principal
-                namespace: crossplane-system
-              type: Opaque
-              stringData:
-                credentials: ""
             readinessChecks:
-              - type: NonEmpty
-                fieldPath: metadata.uid
-            patches:
-              - type: CombineFromComposite
-                combine:
-                  variables:
-                    - fromFieldPath: spec.parameters.clientId
-                    - fromFieldPath: spec.parameters.clientSecret
-                    - fromFieldPath: spec.parameters.tenantId
-                    - fromFieldPath: spec.parameters.subscriptionId
-                  strategy: string
-                  string:
+              - type: MatchCondition
+                matchCondition:
+                  status: "True"
+                  type: Synced
           - name: userAssignedIdentityCrossplane
             base:
               apiVersion: managedidentity.azure.upbound.io/v1beta1
@@ -748,6 +810,10 @@ spec:
               metadata:
                 name: crossplane-owner
               spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Delete
                 providerConfigRef:
                   name: azure-authorization
                 forProvider:
@@ -779,6 +845,10 @@ spec:
               metadata:
                 name: external-dns-dnszone
               spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Delete
                 providerConfigRef:
                   name: azure-authorization
                 forProvider:
@@ -811,6 +881,10 @@ spec:
               metadata:
                 name: external-secrets-kv
               spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Delete
                 providerConfigRef:
                   name: azure-authorization
                 forProvider:
@@ -843,6 +917,10 @@ spec:
               metadata:
                 name: keycloak-kv
               spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Delete
                 providerConfigRef:
                   name: azure-authorization
                 forProvider:
@@ -868,6 +946,37 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.keycloakIdentityName
                 toFieldPath: metadata.name
+          - name: roleAssignmentSeedServicePrincipal
+            base:
+              apiVersion: authorization.azure.upbound.io/v1beta1
+              kind: RoleAssignment
+              metadata:
+                name: seed-bootstrap-kv-admin
+              spec:
+                managementPolicies:
+                  - Observe
+                  - Create
+                  - Delete
+                providerConfigRef:
+                  name: azure-authorization
+                forProvider:
+                  roleDefinitionName: Key Vault Administrator
+                  scope: ""
+                  principalId: ""
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.keyVaultName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s"
+                toFieldPath: spec.forProvider.scope
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.clientObjectId
+                toFieldPath: spec.forProvider.principalId
           - name: providerConfigHelm
             base:
               apiVersion: helm.crossplane.io/v1beta1
@@ -1215,10 +1324,15 @@ spec:
                       chartRepository: https://kubernetes-sigs.github.io/external-dns
                       defaultVersion: "1.16.1"
                       valuesObject:
+                        serviceAccount:
+                          create: true
                         provider:
                           name: azure
                         domainFilters:
                           - "{{ .metadata.annotations.domain }}"
+                      additionalResources:
+                        - type: manifests
+                          manifestPath: manifests
                       selector:
                         matchExpressions:
                           - key: environment
@@ -1232,6 +1346,50 @@ spec:
                       releaseName: external-secrets
                       defaultVersion: "0.17.0"
                       chartRepository: https://charts.external-secrets.io
+                      valuesObject:
+                        serviceAccount:
+                          create: true
+                          name: workload-identity-sa
+                          annotations:
+                            azure.workload.identity/use: "true"
+                        installCRDs: true
+                        podLabels:
+                          azure.workload.identity/use: "true"
+                        commonLabels:
+                          azure.workload.identity/use: "true"
+                        extraObjects:
+                          - apiVersion: external-secrets.io/v1
+                            kind: ClusterSecretStore
+                            metadata:
+                              name: azure-keyvault
+                            spec:
+                              provider:
+                                azurekv:
+                                  authType: WorkloadIdentity
+                                  vaultUrl: ""
+                                  serviceAccountRef:
+                                    name: workload-identity-sa
+                                    namespace: external-secrets
+                          - apiVersion: external-secrets.io/v1
+                            kind: ClusterSecretStore
+                            metadata:
+                              name: keycloak
+                              annotations:
+                                argocd.argoproj.io/sync-wave: "60"
+                            spec:
+                              provider:
+                                kubernetes:
+                                  remoteNamespace: keycloak
+                                  server:
+                                    caProvider:
+                                      type: ConfigMap
+                                      name: kube-root-ca.crt
+                                      namespace: keycloak
+                                      key: ca.crt
+                                  auth:
+                                    serviceAccount:
+                                      name: eso-store
+                                      namespace: keycloak
                       selector:
                         matchExpressions:
                           - key: environment
@@ -1444,6 +1602,24 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.keyVaultName
                 toFieldPath: spec.forProvider.values.annotations[keyvault]
+              - type: CombineFromComposite
+                combine:
+                  strategy: string
+                  string:
+                    fmt: "https://%s.vault.azure.net"
+                  variables:
+                    - fromFieldPath: spec.parameters.keyVaultName
+                toFieldPath: spec.forProvider.values.external-secrets.valuesObject.extraObjects[0].spec.provider.azurekv.vaultUrl
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.externalSecrets.clientId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.values.external-secrets.valuesObject.serviceAccount.annotations[azure.workload.identity/client-id]
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.managedIdentities.externalSecrets.tenantId
+                policy:
+                  fromFieldPath: Optional
+                toFieldPath: spec.forProvider.values.external-secrets.valuesObject.serviceAccount.annotations[azure.workload.identity/tenant-id]
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.pathRouting
                 toFieldPath: spec.forProvider.values.annotations[pathRouting]

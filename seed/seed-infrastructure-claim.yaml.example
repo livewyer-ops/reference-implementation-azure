@@ -1,3 +1,4 @@
+# Copy this file to private/seed-infrastructure-claim.yaml before editing.
 apiVersion: platform.livewyer.io/v1alpha1
 kind: SeedInfrastructureClaim
 metadata:
@@ -13,6 +14,7 @@ spec:
     tenantId: 00000000-0000-0000-0000-000000000000
     clientId: 00000000-0000-0000-0000-000000000000
     clientSecret: replace-me
+    clientObjectId: 00000000-0000-0000-0000-000000000000
     subscriptionId: 00000000-0000-0000-0000-000000000000
     clusterName: aks-example
     clusterOidcIssuerUrl: https://eastus.oic.prod-aks.azure.com/tenant/issuer
@@ -23,7 +25,7 @@ spec:
     appsetChartName: appset
     appsetChartVersion: 0.1.0
     repoUrl: https://github.com/example-org/reference-implementation-azure
-    repoRevision: main
+    repoRevision: v2-seeding-codex
     repoBasePath: packages
     pathRouting: 'false'
     letsencryptEnv: prod

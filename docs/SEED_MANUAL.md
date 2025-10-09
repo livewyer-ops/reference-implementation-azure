@@ -22,12 +22,12 @@ Copy the example claim and fill in all required values (no base64 needed because
 composition takes care of the secret generation):
 
 ```bash
-cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
-${EDITOR:-vim} seed/seed-infrastructure-claim.yaml
+cp seed/seed-infrastructure-claim.yaml.example private/seed-infrastructure-claim.yaml
+${EDITOR:-vim} private/seed-infrastructure-claim.yaml
 ```
 
 Replace every placeholder (`domain`, `resourceGroup`, `keyVaultName`, `location`, `tenantId`,
-`clientId`, `subscriptionId`, `clientSecret`, `clusterName`, etc.). **Keep this file local – it
+`clientId`, `clientObjectId`, `subscriptionId`, `clientSecret`, `clusterName`, `repoRevision`, etc.). **Keep this file local – it
 contains credentials.**
 
 ## 3. Apply the seed manifest and wait for bootstrap
@@ -59,10 +59,10 @@ kubectl create secret generic cnoe-kubeconfig \
 Copy the sample claim, update it with your environment values (Azure identifiers, Git repo metadata, GitHub App credentials, ApplicationSet chart location, etc.), and apply it:
 
 ```bash
-cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
-${EDITOR:-vim} seed/seed-infrastructure-claim.yaml  # fill each parameter (Azure IDs, repo settings, GitHub App values, chart repo, etc.)
-- # Publish the ApplicationSet chart somewhere accessible (e.g., `https://raw.githubusercontent.com/<org>/<repo>/<branch>/charts`) and update appsetChartRepository/appsetChartName/appsetChartVersion.
-kubectl apply -f seed/seed-infrastructure-claim.yaml
+cp seed/seed-infrastructure-claim.yaml.example private/seed-infrastructure-claim.yaml
+${EDITOR:-vim} private/seed-infrastructure-claim.yaml  # fill each parameter (Azure IDs, repo settings, GitHub App values, chart repo, etc.)
+# Publish the ApplicationSet chart somewhere accessible (e.g., `https://raw.githubusercontent.com/<org>/<repo>/<branch>/charts`) and update appsetChartRepository/appsetChartName/appsetChartVersion.
+kubectl apply -f private/seed-infrastructure-claim.yaml
 ```
 
 Monitor progress:
@@ -71,19 +71,20 @@ Monitor progress:
 kubectl get seedinfrastructureclaims.platform.livewyer.io
 kubectl get providerrevision
 kubectl get dnsarecord.network.azure.upbound.io
+kubectl get roleassignments.authorization.azure.upbound.io
 ```
 The `SeedInfrastructure` claim:
 - Stores the service principal credentials in `crossplane-system/azure-service-principal`.
-- Creates or reconciles the Key Vault and wildcard DNS record in Azure.
+- Creates or reconciles the Key Vault and wildcard DNS record in Azure, and assigns the bootstrap service principal `Key Vault Administrator` to support secret updates.
 - Points the `remote-aks` (Helm provider) configuration at the kubeconfig secret you created manually and installs the Argo CD + ApplicationSet Helm releases, which in turn render the addon `ApplicationSet` resources from your Git repo.
 
-## 5. Clean up
+## 6. Clean up
 
 ```bash
 kubectl delete secret azure-service-principal -n crossplane-system || true
 kubectl delete secret cnoe-kubeconfig -n crossplane-system || true
 kubectl delete seedinfrastructureclaim.platform.livewyer.io/seed-default || true
-rm -f private/seed-kubeconfig seed/seed-infrastructure-claim.yaml
+rm -f private/seed-kubeconfig private/seed-infrastructure-claim.yaml
 kind delete cluster --name seed
 ```
 

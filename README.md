@@ -42,18 +42,17 @@ This repository provides a reference implementation for deploying Cloud Native O
 
 ## Architecture
 
-- Installation is managed through **Taskfile** and **Helmfile**
-  - See [TASKFILE.md](./docs/TASKFILE.md) for information about the tasks defined in the `Taskfile.yml` file.
+- The seed phase is orchestrated by **Crossplane** using a reusable composition (`seed/seed-kickoff.yaml`) and a single claim (`private/seed-infrastructure-claim.yaml`).
 - Components are deployed as **ArgoCD Applications**
 - Uses **Azure Workload Identity** for secure authentication to Azure services
 - Files under the `/packages` directory are meant to be usable without modifications
-- Configuration is externalised through the `config.yaml` file
+- Platform configuration is rendered from the claim into the `cnoe-config` secret (and mirrored to Key Vault) rather than editing `config.yaml` directly.
 
 ## How It Works
 
 - `seed/crossplane-install.yaml` installs the Crossplane core controllers (same output as the official Helm chart, rendered once for reuse).
 - `seed/seed-kickoff.yaml` declares the supporting primitives: provider packages (Azure & Helm), the patch-and-transform function, a small RBAC bundle, and the pipeline-based composition (`SeedInfrastructure`) that wires those pieces together.
-- You edit a single manifest, `seed/seed-infrastructure-claim.yaml`, filling in the Azure-specific values (domain, resource group, subscription, tenant, workload-identity IDs, client secret, etc.). Applying the claim generates the Azure service-principal secret and the composed resources automatically.
+- Copy `seed/seed-infrastructure-claim.yaml.example` to `private/seed-infrastructure-claim.yaml`, then fill in the Azure-specific values (domain, resource group, subscription, tenant, workload-identity IDs, **clientObjectId**, client secret, etc.). Set `repoRevision` to the branch that hosts your packaged manifests (for this branch we use `v2-seeding-codex`). Applying the claim generates the Azure service-principal secret, assigns the service principal Key Vault permissions, and renders all composed resources automatically.
 - The complete bootstrap sequence is therefore:
   ```bash
   kind create cluster --config kind.yaml --name seed
@@ -64,15 +63,17 @@ This repository provides a reference implementation for deploying Cloud Native O
   kubectl wait deployment/crossplane-rbac-manager -n crossplane-system --for=condition=Available --timeout=10m
   kubectl create secret generic cnoe-kubeconfig -n crossplane-system --from-file=kubeconfig=private/kubeconfig
   kubectl apply -f seed/seed-kickoff.yaml
-  kubectl apply -f seed/seed-infrastructure-claim.yaml   # populated from the example template
+  kubectl apply -f private/seed-infrastructure-claim.yaml   # populated from the example template
   ```
-- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record) and installs Argo CD plus the ApplicationSet controller via `provider-helm` releases. The published ApplicationSet chart (see `charts/`) renders the full suite of addon ApplicationSets, driven entirely by the claim parameters (Azure IDs, repo metadata, routing flags, GitHub App credentials).
+- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault + secret, wildcard DNS record, role assignments) and installs Argo CD plus the ApplicationSet controller via `provider-helm` releases. The published ApplicationSet chart (see `charts/`) renders the full suite of addon ApplicationSets, driven entirely by the claim parameters (Azure IDs, repo metadata, routing flags, GitHub App credentials).
 - Provide an accessible Helm repository for the ApplicationSet chart (set `appsetChartRepository`, `appsetChartName`, and `appsetChartVersion` in the claim). This can point to an OCI registry or a static chart archive you publish.
 - The Helm provider expects the remote AKS kubeconfig to be available in `crossplane-system/<clusterConnectionSecretName>`; create this secret manually from the existing kubeconfig before applying the claim.
 - Track progress with:
   ```bash
   kubectl get seedinfrastructureclaims.platform.livewyer.io
   kubectl get dnsarecord.network.azure.upbound.io
+  kubectl get roleassignments.authorization.azure.upbound.io
+  kubectl get secrets.keyvault.azure.upbound.io
   ```
 
 ### Deployed Components
@@ -93,7 +94,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 
 - **Azure Resource Management**: The seed phase now assumes that only the AKS cluster and its parent DNS zone already exist. Crossplane compositions create or reconcile the supporting pieces (service-principal secret, Key Vault, wildcard DNS record, Helm provider configuration) once you supply those inputs and provide the remote kubeconfig as a Kubernetes secret.
 - **Production Readiness**: The helper tasks in this repository are for creating Azure resources for demo purposes only. Any production deployments should follow enterprise infrastructure management practices.
-- **Configuration Management**: All configuration is centralised in `config.yaml`. The `private/` directory is only for temporary files during development.
+- **Configuration Management**: The claim renders the platform configuration into `cnoe-config` (stored as a Kubernetes secret and mirrored to Key Vault). The `private/` directory is only for temporary files during development and must never be committed.
 
 ## Prerequisites
 
@@ -104,8 +105,8 @@ Before using this reference implementation, you **MUST** have the following Azur
 1. **AKS Cluster** (1.27+) with:
    - OIDC Issuer enabled (`--enable-oidc-issuer`)
    - Workload Identity enabled (`--enable-workload-identity`)
-   - Sufficient node capacity for all components
-     - For example, the demonstration AKS cluster created with the helper task `azure:creds:create` has node pool with the node size set to `standard_d4alds_v6` by default 
+    - Sufficient node capacity for all components
+     - For reference, the legacy helper (`task azure:creds:create`) provisions a node pool sized `standard_d4alds_v6`.
 2. **Azure DNS Zone**
    - A registered domain with Azure DNS as the authoritative DNS service
 3. **Azure Key Vault**
@@ -114,6 +115,9 @@ Before using this reference implementation, you **MUST** have the following Azur
 4. **Crossplane Workload Identity**
    - Azure Managed Identity with appropriate permissions
    - Federated credentials configured for the AKS cluster OIDC issuer
+5. **Seed Service Principal**
+   - Application (client) ID, object ID, and client secret for the Azure AD service principal that Crossplane uses.
+   - The object ID (`clientObjectId`) is required so the composition can grant Key Vault RBAC automatically.
 
 > **Important**: 
 > - The AKS cluster and DNS zone must live in the same subscription and resource group; the claim uses those identifiers directly.
@@ -151,7 +155,7 @@ mv ${GITHUB_APP_FILE} private/github-integration.yaml
 **Option 2: Manual Creation**
 Follow [Backstage GitHub App documentation](https://backstage.io/docs/integrations/github/github-apps) and save the credentials as `private/github-integration.yaml`.
 
-> **Note**: The `private/` directory is for temporary files during development/testing only. All configuration must be properly stored in `config.yaml` for the actual deployment.
+> **Note**: The `private/` directory is for temporary files during development/testing only. Persisted configuration should live in your Crossplane claim (and any Key Vault secrets it renders), not in version-controlled private files.
 
 #### Create GitHub Token
 
@@ -160,32 +164,15 @@ Create a GitHub Personal Access Token with these permissions:
 - Repository access for all repositories
 - Read-only access to: Administration, Contents, and Metadata
 
-Save the token value temporarily as you will need it when creating the `config.yaml` file.
+Save the token value temporarily; you will need it when populating the GitHub section of your claim and the `cnoe-config` payload.
 
 ## Installation Flow
 
-The installation process follows this pattern:
-
-1. Configure your environment settings in `config.yaml`
-   - The [Installation](#installation) process will include creating a `config.yaml` file using the [`config.yaml.template`](https://github.com/livewyer-ops/reference-implementation-azure/blob/v2/config.yaml.template) in this repository
-2. Run `task install` which:
-   - Sets up Azure Workload Identity credentials
-   - Deploys ArgoCD via Helmfile
-   - Creates ArgoCD ApplicationSets that deploy all other components
-   - Configures workload identities and RBAC automatically
-
-```mermaid
----
-title: Installation Process
----
-erDiagram
-  "Local Machine" ||--o{ "Taskfile" : "1. executes"
-  "Taskfile" ||--o{ "Azure CLI" : "2. configures identity"
-  "Taskfile" ||--o{ "Helmfile" : "3. deploys ArgoCD"
-  "Helmfile" ||--o{ "ArgoCD" : "4. installs"
-  "ArgoCD" ||--o{ "This Repo" : "pulls manifests"
-  "ArgoCD" ||--o{ "Components" : "installs via ApplicationSets"
-```
+1. Copy `seed/seed-infrastructure-claim.yaml.example` to `private/seed-infrastructure-claim.yaml` and populate every placeholder (domain, Azure IDs, **clientObjectId**, repo metadata, chart repository).
+2. Create a local KinD cluster, apply `seed/crossplane-install.yaml`, then apply `seed/seed-kickoff.yaml` to install the Azure/Helm providers and the composition.
+3. Populate the remote AKS kubeconfig secret (`cnoe-kubeconfig`) in `crossplane-system`.
+4. Apply `private/seed-infrastructure-claim.yaml`; Crossplane provisions Azure identities, role assignments, Key Vault + secret, and the Helm releases that install Argo CD with the ApplicationSets.
+5. Monitor progress with `kubectl get seedinfrastructureclaims.platform.livewyer.io`, `kubectl get roleassignments.authorization.azure.upbound.io`, and `kubectl --kubeconfig=private/kubeconfig -n argocd get applications`.
 
 ## Security Notes
 
@@ -196,113 +183,71 @@ erDiagram
 
 ## Installation Steps
 
-### Installation Requirements
+### Prerequisite Tools
 
-- **Azure CLI** (2.13+) with subscription access
-- **kubectl** (1.27+)
+- **Azure CLI** (2.13+) with access to the subscription that hosts AKS/DNS/Key Vault
+- **kubectl** (1.27+) and **kind** (if running the seed cluster locally)
 - **kubelogin** for AKS authentication
-- **yq** for YAML processing
-- **jq** for JSON processing
-- **curl** and **git**
-- **helm** (3.x)
-- **helmfile**
-- **task** (Taskfile executor)
-- A **GitHub Organisation** (free to create)
+- **helm** (3.x) for chart packaging
+- **jq**/ **yq** for inspecting manifests
+- A **GitHub Organisation** (free) with a GitHub App configured for Backstage
 
-### 1. Configure the Installation
+### 1. Prepare the Installation
 
-Copy and customise the configuration:
+1. Copy the claim template and populate every field:
+   ```bash
+   cp seed/seed-infrastructure-claim.yaml.example private/seed-infrastructure-claim.yaml
+   ${EDITOR:-vim} private/seed-infrastructure-claim.yaml
+   ```
+   Required values include the AKS cluster name, resource group, subscription ID, OIDC issuer URL, DNS domain, Key Vault name, GitHub metadata, and the service principal credentials (`clientId`, `clientObjectId`, `clientSecret`).
+2. Publish the ApplicationSet chart (e.g. host the packaged chart + index under `charts/`) and reference it via `appsetChartRepository`, `appsetChartName`, and `appsetChartVersion`.
+3. Gather the remote AKS kubeconfig and save it to `private/kubeconfig`; this will become the `cnoe-kubeconfig` secret.
 
-```bash
-cp config.yaml.template config.yaml
-# Edit config.yaml with your values
-```
-
-Key configuration sections in `config.yaml`:
-
-- `repo`: The details of the repository hosting the reference azure implementation code
-- `cluster_name`: Your AKS cluster name
-- `subscription`: Your Azure subscription ID
-- `location`: The target Azure region
-- `resource_group`: Your Azure resource group
-- `cluster_oidc_issuer_url`: The AKS OIDC issuer URL
-- `domain`: The base domain name you will be using for exposing services
-- `keyvault`: Your Azure Key Vault name
-- `github`: GitHub App credentials (from the [Github Integration Setup](#github-integration-setup))
-
-#### DNS and TLS Configuration
-
-##### Automatic (Recommended)
-
-- Set your domain in `config.yaml`
-- ExternalDNS manages DNS records automatically
-- Cert-manager handles Let's Encrypt certificates
-
-##### Manual
-
-- Set DNS records to point to the ingress load balancer IP
-- Provide your own TLS certificates as Kubernetes secrets
-
-### 2. Install Components
-
-If installing the reference implementation on a machine for the first time run:
+### 2. Bring up the Seed Stack
 
 ```bash
-task init
+kind create cluster --config kind.yaml --name seed
+kind get kubeconfig --name seed > private/seed-kubeconfig
+export KUBECONFIG=$(pwd)/private/seed-kubeconfig
+kubectl apply -f seed/crossplane-install.yaml
+kubectl wait deployment/crossplane -n crossplane-system --for=condition=Available --timeout=10m
+kubectl wait deployment/crossplane-rbac-manager -n crossplane-system --for=condition=Available --timeout=10m
+kubectl apply -f seed/seed-kickoff.yaml
+kubectl create secret generic cnoe-kubeconfig -n crossplane-system --from-file=kubeconfig=private/kubeconfig
 ```
 
-If you haven't previously run `task init`, then you will be prompted to install several Helm plugins required by Helmfile when you run the next command:
+### 3. Apply the Claim
 
 ```bash
-# Install all components
-task install
+kubectl apply -f private/seed-infrastructure-claim.yaml
+kubectl get seedinfrastructureclaims.platform.livewyer.io
 ```
 
-> **Notes**: 
-> - `task install` will update the `config.yaml` file
-> - Post-installation, use `task sync` (the equivalent to running `helmfile sync`) to apply updates. See the [Task Usage Guidelines](docs/TASKFILE.md) for more information.
+### 4. Monitor Installation
 
-### 3. Monitor Installation
-
-Once ArgoCD is running, monitor the installation progress of the other components by checking the Argo CD UI:
-
-```bash
-# Get ArgoCD admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-
-# Port forward to ArgoCD
-kubectl port-forward svc/argocd-server -n argocd 8080:80
-```
-
-Access the ArgoCD UI at http://localhost:8080 with username `admin`.
-
-### 4. Get Access URLs
-
-Use the `task get:urls` command to fetch all the URLs. 
-
-The URL structure of the URLs will depend on the type of routing you set in the configuration. Examples of the set of URLs that can be outputted are below:
-
-**Domain-based routing** (default):
-
-- Backstage: `https://backstage.YOUR_DOMAIN`
-- ArgoCD: `https://argocd.YOUR_DOMAIN`
-- Keycloak: `https://keycloak.YOUR_DOMAIN`
-- Argo Workflows: `https://argo-workflows.YOUR_DOMAIN`
-
-**Path-based routing** (set `path_routing: true`):
-
-- Backstage: `https://YOUR_DOMAIN/`
-- ArgoCD: `https://YOUR_DOMAIN/argocd`
-- Keycloak: `https://YOUR_DOMAIN/keycloak`
-- Argo Workflows: `https://YOUR_DOMAIN/argo-workflows`
+- Check composed resources:
+  ```bash
+  kubectl get roleassignments.authorization.azure.upbound.io
+  kubectl get secrets.keyvault.azure.upbound.io
+  kubectl get releases.helm.crossplane.io
+  ```
+- Inspect remote workloads:
+  ```bash
+  kubectl --kubeconfig=private/kubeconfig -n argocd get applications
+  kubectl --kubeconfig=private/kubeconfig -n external-dns logs -l app.kubernetes.io/name=external-dns
+  ```
+- Port-forward to Argo CD if you need the UI:
+  ```bash
+  kubectl --kubeconfig=private/kubeconfig -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+  kubectl --kubeconfig=private/kubeconfig -n argocd port-forward svc/argocd-server 8080:80
+  ```
 
 ### 5. Access Backstage
 
-Once the Keycloak and Backstage are installed, check you can login to the Backstage UI with a default user:
+Once Keycloak and Backstage report Healthy, retrieve the demo user credentials:
 
 ```bash
-# Get user password
-kubectl -n keycloak get secret keycloak-config -o yaml | yq '.data.USER1_PASSWORD | @base64d'
+kubectl --kubeconfig=private/kubeconfig -n keycloak get secret keycloak-config -o yaml | yq '.data.USER1_PASSWORD | @base64d'
 ```
 
 ## Usage
@@ -310,22 +255,23 @@ kubectl -n keycloak get secret keycloak-config -o yaml | yq '.data.USER1_PASSWOR
 See [DEMO.md](docs/DEMO.md) for information on how to navigate the platform and for usage examples.
 
 ## Update Component Configurations
-
-If you want to try customising component configurations, you can do so by updating the `packages/addons/values.yaml` file and using `task sync` to apply the updates.
+To tweak addon configuration, update the relevant files under `packages/`, rebuild/publish the ApplicationSet chart, bump `appsetChartVersion` in your claim, and reapply the claim (`kubectl apply -f private/seed-infrastructure-claim.yaml`). Argo CD will reconcile the new chart release automatically.
 
 ### Backstage Templates
 
 Backstage templates can be found in the `templates/` directory
 
 ## Uninstall
+Delete the claim to remove all Azure/AKS resources created by Crossplane, then clean up the seed cluster.
 
 ```bash
-# Remove all components
-task uninstall
-
-# Clean up GitHub App and tokens manually
-# Delete the GitHub organisation if no longer needed
+kubectl delete seedinfrastructureclaim.platform.livewyer.io/seed-default || true
+kubectl delete secret azure-service-principal -n crossplane-system || true
+kubectl delete secret cnoe-kubeconfig -n crossplane-system || true
+kind delete cluster --name seed
+rm -f private/seed-kubeconfig private/seed-infrastructure-claim.yaml
 ```
+Manually expire any GitHub Apps/tokens and rotate the Azure service principal secret if it will no longer be used.
 
 ## Contributing
 
@@ -351,8 +297,8 @@ instructions in [`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
 
 Prepare the claim manifest (located under `seed/`):
 
-1. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`, then replace
-   every placeholder with the values from your environment (Azure identifiers, repo metadata, GitHub App
+1. `seed-infrastructure-claim.yaml` – copy from `seed/seed-infrastructure-claim.yaml.example` into `private/seed-infrastructure-claim.yaml`, then replace
+   every placeholder with the values from your environment (Azure identifiers, **clientObjectId**, repo metadata, GitHub App
    credentials, ApplicationSet chart location, etc.). Publish your ApplicationSet chart (e.g. by
    committing the packaged `.tgz` and `index.yaml` under `charts/` as done on branch `v2-seeding-codex`)
    and update `appsetChartRepository/appsetChartName/appsetChartVersion`
@@ -377,7 +323,7 @@ kubectl wait deployment/crossplane-rbac-manager -n crossplane-system --for=condi
 
 When finished, delete the `azure-service-principal` secret from `crossplane-system`, remove
 temporary files under `private/`, destroy the KinD cluster (`kind delete cluster --name seed`),
-and remove `seed/seed-infrastructure-claim.yaml` (which contains the client secret). Remove the
+and remove `private/seed-infrastructure-claim.yaml` (which contains the client secret). Remove the
 `cnoe-kubeconfig` secret after the run and recreate it from fresh credentials whenever you rotate
 remote cluster access.
 
