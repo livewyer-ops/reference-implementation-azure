@@ -4,38 +4,3 @@ podLabels:
   azure.workload.identity/use: "true"
 commonLabels:
   azure.workload.identity/use: "true"
-
-extraObjects:
-  - apiVersion: external-secrets.io/v1
-    kind: ClusterSecretStore
-    metadata:
-      name: azure-keyvault
-    spec:
-      provider:
-        azurekv:
-          authType: WorkloadIdentity
-          vaultUrl: "https://{{ .metadata.annotations.keyvault }}.vault.azure.net"
-          serviceAccountRef:
-            name: workload-identity-sa
-            namespace: external-secrets
-
-  - apiVersion: external-secrets.io/v1
-    kind: ClusterSecretStore
-    metadata:
-      name: keycloak
-      annotations:
-        argocd.argoproj.io/sync-wave: "60"
-    spec:
-      provider:
-        kubernetes:
-          remoteNamespace: keycloak
-          server:
-            caProvider:
-              type: ConfigMap
-              name: kube-root-ca.crt
-              namespace: keycloak
-              key: ca.crt
-          auth:
-            serviceAccount:
-              name: eso-store
-              namespace: keycloak

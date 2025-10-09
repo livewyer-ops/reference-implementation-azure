@@ -24,10 +24,3 @@ github:
   privateKey: str(multiline=True)
 letsencrypt_env: enum('prod', 'staging')
 tags: map(str(), key=str())
-crossplane_workload_identity:
-  create: bool()
-  clientId: str()
-  tenantId: str()
-externaldns_workload_identity:
-  clientId: str(required=False)
-  tenantId: str(required=False)
