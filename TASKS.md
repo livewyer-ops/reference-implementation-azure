@@ -1,18 +1,19 @@
 # Local Seed Migration Tasks
 
 ## Objective
-Replace the current Azure CLI + Helm-based seed phase with an ephemeral local Kubernetes cluster that reconciles the same Azure infrastructure and Helm releases through Crossplane, driven by a static kickoff manifest plus a follow-up secret injection (`kubectl apply -f seed/seed-kickoff.yaml` and a `kubectl create secret ... --dry-run | kubectl apply -f -` flow wrapped in Taskfile targets).
+Replace the current Azure CLI + Helm-based seed phase with an ephemeral local Kubernetes cluster that reconciles the same Azure infrastructure and Helm releases through Crossplane, driven entirely by declarative manifests (`kubectl apply -f seed/`).
 
 - **Current state**
   - Seed bootstrap is executed manually using `kind` + `kubectl`; see quick steps in `docs/SEED_MANUAL.md`.
-  - Optional helper assets remain in `seed/` (kickoff manifest, Dockerfile), but Taskfile no longer wraps the flow.
+  - Only declarative manifests remain in `seed/` (Crossplane install bundle, composition, claim example).
+  - Operators manually create the `crossplane-system/<clusterConnectionSecretName>` (default `cnoe-kubeconfig`) secret from the remote AKS kubeconfig before applying the claim.
 
 ## Preconditions
 - Document current seed actions in `Taskfile.yml` (Azure resource creation, Helmfile invocations, secret handling).
 - Confirm access to build/publish container images inside the organisation registry.
 - Capture credentials for the remote AKS target cluster and supporting Azure identities (service principals, managed identities, Key Vault secrets).
 - Ensure `task update:kubeconfig` (or equivalent) has been executed so `private/kubeconfig` exists before observing the real cluster.
-- Provide an Azure service principal with sufficient permissions via `seed/user-secrets.yaml` before applying the seed manifests.
+- Provide an Azure service principal (clientId/clientSecret/etc.) via `seed/seed-infrastructure-claim.yaml` before applying the seed manifests (do not commit the populated file).
 
 ## Task Group 1 – Seed Container Image
 1. Define container requirements (kubectl, helmfile, crossplane CLI, Azure CLI?, yq/jq, helm plugins).
@@ -26,8 +27,8 @@ Replace the current Azure CLI + Helm-based seed phase with an ephemeral local Ku
 1. Confirm all documentation references the manual commands:
    - `kind create cluster --config kind.yaml --name seed`.
    - `export KUBECONFIG=$(pwd)/private/seed-kubeconfig` (or set via tooling).
-   - Copy/edit `seed/user-secrets.yaml.example` and `seed/seed-infrastructure-claim.yaml.example`.
-   - `kubectl apply -f seed/` followed by `kubectl wait job/crossplane-bootstrap -n seed-system --for=condition=Complete --timeout=15m`.
+   - Copy/edit `seed/seed-infrastructure-claim.yaml.example` (fill every placeholder, including clientSecret).
+   - `kubectl apply -f seed/` followed by `kubectl wait deployment/crossplane -n crossplane-system --for=condition=Available --timeout=10m`.
 2. Validate that no CI or docs still reference removed `task seed:*` targets.
 
 ## Task Group 2 – Ephemeral Local Cluster Bootstrap
@@ -55,10 +56,10 @@ Replace the current Azure CLI + Helm-based seed phase with an ephemeral local Ku
 3. Define connection secrets for each release (URLs, credentials) for later Taskfile consumption.
 
 ## Task Group 6 – Remote Cluster Credential Injection
-1. Determine authoritative source for remote AKS kubeconfig (`config.yaml`, Key Vault, Service Principal).
-2. Implement secure hand-off to local seed cluster (scaffolded via the manual `kubectl create secret …` steps; secrets carry JSON credentials + kubeconfig).
-3. Configure Crossplane `ProviderConfig` for `provider-helm` to use the injected kubeconfig.
-4. Validate access by running `kubectl --kubeconfig remote` commands inside container.
+1. ✅ Documented manual step to create the kubeconfig secret prior to applying the claim.
+2. Capture troubleshooting guidance for stale or missing kubeconfig secrets (e.g., how to rebuild from `private/kubeconfig`).
+3. Document the rotation flow for the service-principal secret and the kubeconfig secret (delete + recreate secret, re-apply claim).
+4. Confirm Helm provider connectivity against a real AKS cluster once workloads are deployed.
 
 ## Task Group 7 – Single Manifest Assembly
 1. Create `seed-kickoff.yaml` aggregating:
@@ -82,3 +83,8 @@ Replace the current Azure CLI + Helm-based seed phase with an ephemeral local Ku
 1. Create acceptance checklist verifying Azure resources and Helm releases match prior implementation.
 2. Add smoke tests executed inside container (e.g., `helm status`, `az resource show` via Crossplane outputs).
 3. Run regression against staging AKS cluster; capture timing and failure modes.
+
+## Current Outstanding Tasks
+- Expand documentation/runbooks with troubleshooting steps for missing/incorrect kubeconfig secrets (how to regenerate, expected secret structure).
+- Define and automate (where possible) the rotation process for both the Azure service principal and the kubeconfig secret.
+- Explore future Crossplane provider improvements that would allow read-only kubeconfig retrieval without manual secrets.

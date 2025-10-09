@@ -49,6 +49,30 @@ This repository provides a reference implementation for deploying Cloud Native O
 - Files under the `/packages` directory are meant to be usable without modifications
 - Configuration is externalised through the `config.yaml` file
 
+## How It Works
+
+- `seed/crossplane-install.yaml` installs the Crossplane core controllers (same output as the official Helm chart, rendered once for reuse).
+- `seed/seed-kickoff.yaml` declares the supporting primitives: provider packages (Azure & Helm), the patch-and-transform function, a small RBAC bundle, and the pipeline-based composition (`SeedInfrastructure`) that wires those pieces together.
+- You edit a single manifest, `seed/seed-infrastructure-claim.yaml`, filling in the Azure-specific values (domain, resource group, subscription, tenant, workload-identity IDs, client secret, etc.). Applying the claim generates the Azure service-principal secret and the composed resources automatically.
+- The complete bootstrap sequence is therefore:
+  ```bash
+  kind create cluster --config kind.yaml --name seed
+  kind get kubeconfig --name seed > private/seed-kubeconfig
+  export KUBECONFIG=$(pwd)/private/seed-kubeconfig
+  kubectl apply -f seed/crossplane-install.yaml
+  kubectl wait deployment/crossplane -n crossplane-system --for=condition=Available --timeout=10m
+  kubectl wait deployment/crossplane-rbac-manager -n crossplane-system --for=condition=Available --timeout=10m
+  kubectl create secret generic cnoe-kubeconfig -n crossplane-system --from-file=kubeconfig=private/kubeconfig
+  kubectl apply -f seed/seed-kickoff.yaml
+  kubectl apply -f seed/seed-infrastructure-claim.yaml   # populated from the example template
+  ```
+- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record). The Helm provider expects the remote AKS kubeconfig to be available in `crossplane-system/<clusterConnectionSecretName>`; create this secret manually from the existing kubeconfig before applying the claim.
+- Track progress with:
+  ```bash
+  kubectl get seedinfrastructureclaims.platform.livewyer.io
+  kubectl get dnsarecord.network.azure.upbound.io
+  ```
+
 ### Deployed Components
 
 | Component        | Version    | Purpose                        |
@@ -65,7 +89,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 
 ## Important Notes
 
-- **Azure Resource Management**: This repository does not manage Azure infrastructure. AKS cluster, DNS zone, Key Vault, and related resources must be provisioned separately using your organization's infrastructure management approach.
+- **Azure Resource Management**: The seed phase now assumes that only the AKS cluster and its parent DNS zone already exist. Crossplane compositions create or reconcile the supporting pieces (service-principal secret, Key Vault, wildcard DNS record, Helm provider configuration) once you supply those inputs and provide the remote kubeconfig as a Kubernetes secret.
 - **Production Readiness**: The helper tasks in this repository are for creating Azure resources for demo purposes only. Any production deployments should follow enterprise infrastructure management practices.
 - **Configuration Management**: All configuration is centralised in `config.yaml`. The `private/` directory is only for temporary files during development.
 
@@ -83,15 +107,16 @@ Before using this reference implementation, you **MUST** have the following Azur
 2. **Azure DNS Zone**
    - A registered domain with Azure DNS as the authoritative DNS service
 3. **Azure Key Vault**
-   - For storing configuration secrets and certificates
-   - Must be accessible from the AKS cluster
+   - Crossplane will create or reconcile this vault using the name you provide
+   - Ensure the service principal in the claim has permissions to manage it
 4. **Crossplane Workload Identity**
    - Azure Managed Identity with appropriate permissions
    - Federated credentials configured for the AKS cluster OIDC issuer
 
 > **Important**: 
-> - All Azure resources must be in the same subscription and resource group
-> - These resources are prerequisites and must be provisioned using your organisation's preferred infrastructure management approach (Terraform, Bicep, ARM templates, etc.). The tasks in this repository that create Azure resources (`azure:creds:create`, `test:aks:create`, etc.) are helper functions for demonstration purposes only and are **NOT recommended for production deployments**.
+> - The AKS cluster and DNS zone must live in the same subscription and resource group; the claim uses those identifiers directly.
+> - Crossplane can (re)create the Key Vault and wildcard record, but your service principal needs sufficient rights over the subscription/resource group.
+> - Helper `task` targets that scaffold Azure resources remain for demos only; rely on your organisation's IaC workflows for persistent environments.
 
 #### Setup Guidance for Azure Resources
 
@@ -317,27 +342,35 @@ See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and detailed
 The Taskfile-based seed flow has been retired. Use the manual KinD instructions in
 [`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
 
-Prepare the following files (located under `seed/`):
+Prepare the claim manifest (located under `seed/`):
 
-1. `user-secrets.yaml` – copy from `user-secrets.yaml.example` and paste your Azure service-
-   principal JSON under `stringData.credentials`.
-2. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`
-   and replace each parameter with the values from your environment (`domain`, `resourceGroup`,
-   `keyVaultName`, etc.).
+1. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`, then replace
+   every placeholder with the values from your environment (`domain`, `resourceGroup`, `keyVaultName`,
+   `location`, `tenantId`, `clientId`, `subscriptionId`, `clientSecret`, `clusterName`, etc.). **Do not
+   commit the populated file; it contains credentials.**
 
-Then apply everything with a single command:
+Create the kubeconfig secret referenced by your claim (defaults to `cnoe-kubeconfig`) using the credentials you already fetched for the remote cluster:
+
+```bash
+kubectl create secret generic cnoe-kubeconfig \
+  -n crossplane-system \
+  --from-file=kubeconfig=private/kubeconfig
+```
+
+Then apply everything with a single command (the composition renders the Azure service-principal secret,
+Key Vault, and wildcard record, and reuses the kubeconfig secret you created above):
 
 ```bash
 kubectl apply -f seed/
-kubectl wait job/crossplane-bootstrap \
-  --namespace seed-system \
-  --for=condition=Complete \
-  --timeout=15m
+kubectl wait deployment/crossplane -n crossplane-system --for=condition=Available --timeout=10m
+kubectl wait deployment/crossplane-rbac-manager -n crossplane-system --for=condition=Available --timeout=10m
 ```
 
 When finished, delete the `azure-service-principal` secret from `crossplane-system`, remove
 temporary files under `private/`, destroy the KinD cluster (`kind delete cluster --name seed`),
-and remove `seed/user-secrets.yaml`.
+and remove `seed/seed-infrastructure-claim.yaml` (which contains the client secret). Remove the
+`cnoe-kubeconfig` secret after the run and recreate it from fresh credentials whenever you rotate
+remote cluster access.
 
 ## Potential Enhancements
 

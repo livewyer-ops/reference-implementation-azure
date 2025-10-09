@@ -38,7 +38,6 @@ override.tf.json
 terraform.rc
 
 /private/
-seed/user-secrets.yaml
 seed/seed-infrastructure-claim.yaml
 config.yaml
 .task/
