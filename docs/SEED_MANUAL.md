@@ -61,7 +61,7 @@ Copy the sample claim, update it with your environment values (Azure identifiers
 ```bash
 cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
 ${EDITOR:-vim} seed/seed-infrastructure-claim.yaml  # fill each parameter (Azure IDs, repo settings, GitHub App values, chart repo, etc.)
-# Publish the ApplicationSet chart somewhere accessible and update appsetChartRepository/appsetChartName/appsetChartVersion.
+- # Publish the ApplicationSet chart somewhere accessible (e.g., `https://raw.githubusercontent.com/<org>/<repo>/<branch>/charts`) and update appsetChartRepository/appsetChartName/appsetChartVersion.
 kubectl apply -f seed/seed-infrastructure-claim.yaml
 ```
 
@@ -75,7 +75,7 @@ kubectl get dnsarecord.network.azure.upbound.io
 The `SeedInfrastructure` claim:
 - Stores the service principal credentials in `crossplane-system/azure-service-principal`.
 - Creates or reconciles the Key Vault and wildcard DNS record in Azure.
-- Points the `remote-aks` (Helm provider) configuration at the kubeconfig secret you created manually.
+- Points the `remote-aks` (Helm provider) configuration at the kubeconfig secret you created manually and installs the Argo CD + ApplicationSet Helm releases, which in turn render the addon `ApplicationSet` resources from your Git repo.
 
 ## 5. Clean up
 

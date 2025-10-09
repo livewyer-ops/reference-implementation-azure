@@ -66,7 +66,7 @@ This repository provides a reference implementation for deploying Cloud Native O
   kubectl apply -f seed/seed-kickoff.yaml
   kubectl apply -f seed/seed-infrastructure-claim.yaml   # populated from the example template
   ```
-- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record) and installs Argo CD plus the ApplicationSet controller via `provider-helm` releases. All chart values (domain, repo metadata, GitHub App credentials) come from the claim parameters.
+- Crossplane then reconciles the Azure-facing resources (service-principal secret, Key Vault, wildcard DNS record) and installs Argo CD plus the ApplicationSet controller via `provider-helm` releases. The published ApplicationSet chart (see `charts/`) renders the full suite of addon ApplicationSets, driven entirely by the claim parameters (Azure IDs, repo metadata, routing flags, GitHub App credentials).
 - Provide an accessible Helm repository for the ApplicationSet chart (set `appsetChartRepository`, `appsetChartName`, and `appsetChartVersion` in the claim). This can point to an OCI registry or a static chart archive you publish.
 - The Helm provider expects the remote AKS kubeconfig to be available in `crossplane-system/<clusterConnectionSecretName>`; create this secret manually from the existing kubeconfig before applying the claim.
 - Track progress with:
@@ -353,8 +353,9 @@ Prepare the claim manifest (located under `seed/`):
 
 1. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`, then replace
    every placeholder with the values from your environment (Azure identifiers, repo metadata, GitHub App
-   credentials, ApplicationSet chart location, etc.). Publish your ApplicationSet chart (e.g. an OCI
-   artifact or static `.tgz`) and update `appsetChartRepository/appsetChartName/appsetChartVersion`
+   credentials, ApplicationSet chart location, etc.). Publish your ApplicationSet chart (e.g. by
+   committing the packaged `.tgz` and `index.yaml` under `charts/` as done on branch `v2-seeding-codex`)
+   and update `appsetChartRepository/appsetChartName/appsetChartVersion`
    accordingly. **Do not commit the populated file; it contains credentials and private keys.**
 
 Create the kubeconfig secret referenced by your claim (defaults to `cnoe-kubeconfig`) using the credentials you already fetched for the remote cluster:

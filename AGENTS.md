@@ -40,13 +40,14 @@
    ```bash
    cp seed/seed-infrastructure-claim.yaml.example seed/seed-infrastructure-claim.yaml
    ${EDITOR:-vim} seed/seed-infrastructure-claim.yaml   # fill every placeholder (Azure IDs, repo metadata, GitHub App credentials, chart repo, etc.)
-   # Ensure you publish the ApplicationSet chart and point appsetChartRepository/appsetChartName/appsetChartVersion accordingly.
+   # Publish (or reuse the published) ApplicationSet chart and point appsetChartRepository/appsetChartName/appsetChartVersion accordingly.
    kubectl apply -f seed/seed-infrastructure-claim.yaml
    ```
 6. **Monitor reconciliation**
    ```bash
    kubectl get seedinfrastructureclaims.platform.livewyer.io
    kubectl get dnsarecord.network.azure.upbound.io
+   kubectl get applicationsets.argoproj.io -n argocd
    ```
 7. **Cleanup**
    ```bash

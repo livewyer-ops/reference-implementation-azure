@@ -17,7 +17,7 @@ Deploy the CNOE reference implementation to the remote AKS cluster using only th
 
 ## Task 3 – Helm Releases via Crossplane
 - ✅ Add an Argo CD `Release` (chart `argo-cd`, version `8.0.14`) driven by the claim’s values (ingress host, namespaces, etc.).
-- Add a second `Release` for the AppSet chart sourced from `packages/charts/appset` without modifying existing package content (e.g., reference it through a ConfigMap/Secret or published artifact).
+- ✅ Add a second `Release` for the AppSet chart sourced from `packages/charts/appset` without modifying existing package content (chart published under `charts/`).
 - Wire readiness/dependency ordering so secrets exist before the Helm releases reconcile.
 
 ## Task 4 – Composition Wiring & Observability

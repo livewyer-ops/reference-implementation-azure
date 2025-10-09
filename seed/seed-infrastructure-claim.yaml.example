@@ -1,6 +1,3 @@
-# Copy this file to seed/seed-infrastructure-claim.yaml and update the parameters
-# with values from your environment (matches config.yaml).
-
 apiVersion: platform.livewyer.io/v1alpha1
 kind: SeedInfrastructureClaim
 metadata:
@@ -9,57 +6,32 @@ spec:
   compositionRef:
     name: seed-infrastructure
   parameters:
-    # === Required values: replace with your environment ===
-    # FQDN of the Azure DNS zone (matches config.yaml: domain)
     domain: example.com
-    # Resource group that owns the DNS zone, Key Vault, and AKS cluster
     resourceGroup: rg-example
-    # Name of the existing Key Vault that stores platform secrets
     keyVaultName: kv-example
-    # Azure region (matches config.yaml: location)
     location: westeurope
-    # Azure tenant ID (config.yaml: tenant_id)
     tenantId: 00000000-0000-0000-0000-000000000000
-    # Crossplane workload identity client ID (config.yaml: crossplane_workload_identity.clientId)
     clientId: 00000000-0000-0000-0000-000000000000
-    # Azure service principal client secret (config.yaml: crossplane_workload_identity.clientSecret)
-    clientSecret: "replace-me"
-    # Azure subscription ID (config.yaml: subscription)
+    clientSecret: replace-me
     subscriptionId: 00000000-0000-0000-0000-000000000000
-    # AKS cluster name (config.yaml: cluster_name)
     clusterName: aks-example
-    # AKS cluster OIDC issuer URL (config.yaml: cluster_oidc_issuer_url)
     clusterOidcIssuerUrl: https://eastus.oic.prod-aks.azure.com/tenant/issuer
-    # Wildcard A record target (defaults to 127.0.0.1 unless you have a public ingress IP)
     wildcardAddress: 127.0.0.1
-    # Kubernetes secret (in crossplane-system) containing config.json for Key Vault sync
     configSecretName: cnoe-config
-    # Name of the kubeconfig secret (must already exist in crossplane-system)
     clusterConnectionSecretName: cnoe-kubeconfig
-    # Helm chart resolver for the ApplicationSet controller
     appsetChartRepository: https://example.com/helm
     appsetChartName: appset
     appsetChartVersion: 0.1.0
-    # Git repository details for ApplicationSets
     repoUrl: https://github.com/example-org/reference-implementation-azure
     repoRevision: main
     repoBasePath: packages
-    # Routing and certificate preferences
-    pathRouting: "false"
+    pathRouting: 'false'
     letsencryptEnv: prod
-    # GitHub App credentials (used by Argo CD)
-    githubAppId: "123456"
-    githubAppInstallationId: "654321"
+    githubAppId: '0'
+    githubAppInstallationId: '0'
     githubOrgUrl: https://github.com/example-org
-    githubClientId: replace-me-client-id
-    githubClientSecret: replace-me-client-secret
-    githubWebhookUrl: https://example.com/webhook
-    githubWebhookSecret: replace-me-webhook-secret
-    githubPrivateKey: |
-      -----BEGIN RSA PRIVATE KEY-----
-      YOUR-KEY-HERE
-      -----END RSA PRIVATE KEY-----
-    # ApplicationSet chart location (publish your packaged chart somewhere accessible)
-    appsetChartRepository: https://example.com/helm
-    appsetChartName: appset
-    appsetChartVersion: 0.1.0
+    githubClientId: ''
+    githubClientSecret: ''
+    githubWebhookUrl: ''
+    githubWebhookSecret: ''
+    githubPrivateKey: ''
