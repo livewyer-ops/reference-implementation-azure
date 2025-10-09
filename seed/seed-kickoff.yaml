@@ -1,0 +1,488 @@
+# Static kickoff manifest for the local seed convergence loop.
+# Edit `seed-configuration` for high-level options; extend
+# `seed-bootstrap-files` to evolve package/composition content.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crossplane-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: seed-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seed-configuration
+  namespace: seed-system
+data:
+  azureProviderPackage: xpkg.upbound.io/upbound/provider-azure:v0.30.0
+  helmProviderPackage: xpkg.upbound.io/crossplane-contrib/provider-helm:v1.0.2
+  compositionNamespace: seed-system
+  notes: |
+    Update this ConfigMap with configuration values that Crossplane compositions
+    should consume (e.g., resource groups, DNS zones, chart variants).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seed-bootstrap-files
+  namespace: seed-system
+data:
+  bootstrap.sh: |
+    #!/bin/sh
+    set -euo pipefail
+
+    echo "[seed-bootstrap] Installing tooling..."
+    apk add --no-cache curl kubectl
+
+    echo "[seed-bootstrap] Installing Crossplane via Helm (2.0.2)..."
+    helm repo add crossplane-stable https://charts.crossplane.io/stable
+    helm repo update
+    helm upgrade --install crossplane crossplane-stable/crossplane \
+      --namespace crossplane-system \
+      --create-namespace \
+      --version 2.0.2 \
+      --wait
+
+    echo "[seed-bootstrap] Waiting for Crossplane deployments to report Available..."
+    kubectl -n crossplane-system wait deployment/crossplane --for=condition=Available=True --timeout=10m
+    kubectl -n crossplane-system wait deployment/crossplane-rbac-manager --for=condition=Available=True --timeout=10m
+
+    echo "[seed-bootstrap] Installing Crossplane providers..."
+    if [ -s /seed/providers.yaml ]; then
+      kubectl apply -f /seed/providers.yaml
+    else
+      echo "[seed-bootstrap] providers.yaml is empty; skipping."
+    fi
+
+    echo "[seed-bootstrap] Waiting for providers to report Healthy..."
+    kubectl wait --for=condition=Healthy provider.pkg.crossplane.io/provider-azure --timeout=10m || kubectl get provider.pkg.crossplane.io/provider-azure -o yaml || true
+    kubectl wait --for=condition=Healthy provider.pkg.crossplane.io/provider-helm --timeout=10m || kubectl get provider.pkg.crossplane.io/provider-helm -o yaml || true
+    kubectl wait --for=condition=Healthy function.pkg.crossplane.io/function-patch-and-transform --timeout=10m || kubectl get function.pkg.crossplane.io/function-patch-and-transform -o yaml || true
+
+    echo "[seed-bootstrap] Configuring provider credentials..."
+    if [ -s /seed/providerconfigs.yaml ]; then
+      kubectl apply -f /seed/providerconfigs.yaml
+    else
+      echo "[seed-bootstrap] providerconfigs.yaml is empty; skipping."
+    fi
+
+    echo "[seed-bootstrap] Applying compositions and claims..."
+    if [ -s /seed/compositions.yaml ] && grep -q "apiVersion" /seed/compositions.yaml; then
+      kubectl apply -f /seed/compositions.yaml
+    else
+      echo "[seed-bootstrap] compositions.yaml is empty; skipping."
+    fi
+
+    echo "[seed-bootstrap] Completed Crossplane bootstrap."
+
+  providers.yaml: |
+    apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    metadata:
+      name: provider-azure
+    spec:
+      package: xpkg.upbound.io/upbound/provider-azure:v0.30.0
+      packagePullPolicy: IfNotPresent
+    ---
+    apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    metadata:
+      name: provider-helm
+    spec:
+      package: xpkg.upbound.io/crossplane-contrib/provider-helm:v1.0.2
+      packagePullPolicy: IfNotPresent
+    ---
+    apiVersion: pkg.crossplane.io/v1beta1
+    kind: Function
+    metadata:
+      name: function-patch-and-transform
+    spec:
+      package: xpkg.upbound.io/crossplane-contrib/function-patch-and-transform:v0.5.0
+      packagePullPolicy: IfNotPresent
+
+  providerconfigs.yaml: |
+    apiVersion: azure.upbound.io/v1beta1
+    kind: ProviderConfig
+    metadata:
+      name: azure-default
+    spec:
+      credentials:
+        source: Secret
+        secretRef:
+          namespace: crossplane-system
+          name: azure-service-principal
+          key: credentials
+    ---
+    apiVersion: helm.crossplane.io/v1beta1
+    kind: ProviderConfig
+    metadata:
+      name: remote-aks
+    spec:
+      credentials:
+        source: Secret
+        secretRef:
+          namespace: crossplane-system
+          name: ""
+          key: kubeconfig
+
+  compositions.yaml: |
+    ---
+    apiVersion: apiextensions.crossplane.io/v1
+    kind: CompositeResourceDefinition
+    metadata:
+      name: seedinfrastructures.platform.livewyer.io
+    spec:
+      group: platform.livewyer.io
+      names:
+        kind: SeedInfrastructure
+        plural: seedinfrastructures
+      claimNames:
+        kind: SeedInfrastructureClaim
+        plural: seedinfrastructureclaims
+      defaultCompositionRef:
+        name: seed-infrastructure
+      versions:
+        - name: v1alpha1
+          served: true
+          referenceable: true
+          schema:
+            openAPIV3Schema:
+              type: object
+              properties:
+                spec:
+                  type: object
+                  properties:
+                    parameters:
+                      type: object
+                      properties:
+                        domain:
+                          type: string
+                        resourceGroup:
+                          type: string
+                        keyVaultName:
+                          type: string
+                        location:
+                          type: string
+                        tenantId:
+                          type: string
+                        clientId:
+                          type: string
+                        subscriptionId:
+                          type: string
+                        clusterName:
+                          type: string
+                        wildcardAddress:
+                          type: string
+                          default: 127.0.0.1
+                        configSecretName:
+                          type: string
+                          default: cnoe-config
+                        clusterConnectionSecretName:
+                          type: string
+                          default: cnoe-kubeconfig
+                      required:
+                        - domain
+                        - resourceGroup
+                        - keyVaultName
+                        - location
+                        - tenantId
+                        - clientId
+                        - subscriptionId
+                        - clusterName
+                  required:
+                    - parameters
+    ---
+    apiVersion: apiextensions.crossplane.io/v1
+    kind: Composition
+    metadata:
+      name: seed-infrastructure
+    spec:
+      compositeTypeRef:
+        apiVersion: platform.livewyer.io/v1alpha1
+        kind: SeedInfrastructure
+      mode: Pipeline
+      pipeline:
+        - step: render
+          functionRef:
+            name: function-patch-and-transform
+          input:
+            apiVersion: pt.fn.crossplane.io/v1beta1
+            kind: ResourcesConfiguration
+            resources:
+              - name: dnsZone
+                base:
+                  apiVersion: network.azure.upbound.io/v1beta1
+                  kind: DNSZone
+                  metadata:
+                    annotations:
+                      crossplane.io/external-name: ""
+                  spec:
+                    managementPolicies:
+                      - Update
+                      - Observe
+                    forProvider:
+                      resourceGroupName: ""
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: metadata.name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: metadata.annotations.cnoe.io/domain
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: metadata.annotations.crossplane.io/external-name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.resourceGroup
+                    toFieldPath: spec.forProvider.resourceGroupName
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: spec.forProvider.zoneName
+              - name: dnsWildcard
+                base:
+                  apiVersion: network.azure.upbound.io/v1beta1
+                  kind: DNSARecord
+                  metadata:
+                    annotations:
+                      crossplane.io/external-name: ""
+                  spec:
+                    managementPolicies:
+                      - Update
+                      - Observe
+                    forProvider:
+                      ttl: 3600
+                      records:
+                        - 127.0.0.1
+                      resourceGroupName: ""
+                      zoneNameRef:
+                        name: ""
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: metadata.name
+                    transforms:
+                      - type: string
+                        string:
+                          fmt: "wildcard.local.%s"
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.resourceGroup
+                    toFieldPath: spec.forProvider.resourceGroupName
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.domain
+                    toFieldPath: spec.forProvider.zoneNameRef.name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.wildcardAddress
+                    toFieldPath: spec.forProvider.records[0]
+              - name: keyVault
+                base:
+                  apiVersion: keyvault.azure.upbound.io/v1beta1
+                  kind: Vault
+                  metadata:
+                    annotations:
+                      crossplane.io/external-name: ""
+                  spec:
+                    managementPolicies:
+                      - Create
+                      - Update
+                      - Observe
+                    forProvider:
+                      enableRbacAuthorization: true
+                      skuName: standard
+                      softDeleteRetentionDays: 7
+                      resourceGroupName: ""
+                      location: ""
+                      tenantId: ""
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.keyVaultName
+                    toFieldPath: metadata.name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.keyVaultName
+                    toFieldPath: metadata.annotations.cnoe.io/keyvault
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.keyVaultName
+                    toFieldPath: metadata.annotations.crossplane.io/external-name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.resourceGroup
+                    toFieldPath: spec.forProvider.resourceGroupName
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.location
+                    toFieldPath: spec.forProvider.location
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.tenantId
+                    toFieldPath: spec.forProvider.tenantId
+              - name: keyVaultSecret
+                base:
+                  apiVersion: keyvault.azure.upbound.io/v1beta1
+                  kind: Secret
+                  metadata:
+                    annotations:
+                      crossplane.io/external-name: config
+                  spec:
+                    managementPolicies:
+                      - Create
+                      - Update
+                      - Observe
+                    forProvider:
+                      name: config
+                      keyVaultIdRef:
+                        name: ""
+                      valueSecretRef:
+                        key: config.json
+                        name: ""
+                        namespace: crossplane-system
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.keyVaultName
+                    toFieldPath: spec.forProvider.keyVaultIdRef.name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.configSecretName
+                    toFieldPath: spec.forProvider.valueSecretRef.name
+              - name: observedAks
+                base:
+                  apiVersion: containerservice.azure.upbound.io/v1beta1
+                  kind: KubernetesCluster
+                  metadata:
+                    annotations:
+                      crossplane.io/external-name: ""
+                  spec:
+                    managementPolicies:
+                      - Update
+                      - Observe
+                    writeConnectionSecretToRef:
+                      name: ""
+                      namespace: crossplane-system
+                    forProvider:
+                      location: ""
+                      resourceGroupName: ""
+                      defaultNodePool: {}
+                      oidcIssuerEnabled: true
+                      workloadIdentityEnabled: true
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clusterName
+                    toFieldPath: metadata.name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clusterName
+                    toFieldPath: metadata.annotations.cnoe.io/cluster
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clusterName
+                    toFieldPath: metadata.annotations.crossplane.io/external-name
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.resourceGroup
+                    toFieldPath: spec.forProvider.resourceGroupName
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.location
+                    toFieldPath: spec.forProvider.location
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clusterConnectionSecretName
+                    toFieldPath: spec.writeConnectionSecretToRef.name
+              - name: providerConfigAzure
+                base:
+                  apiVersion: azure.upbound.io/v1beta1
+                  kind: ProviderConfig
+                  metadata:
+                    name: azure-default
+                  spec:
+                    subscriptionID: ""
+                    tenantID: ""
+                    clientID: ""
+                    credentials:
+                      source: Secret
+                      secretRef:
+                        namespace: crossplane-system
+                        name: azure-service-principal
+                        key: credentials
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.subscriptionId
+                    toFieldPath: spec.subscriptionID
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.tenantId
+                    toFieldPath: spec.tenantID
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clientId
+                    toFieldPath: spec.clientID
+              - name: providerConfigHelm
+                base:
+                  apiVersion: helm.crossplane.io/v1beta1
+                  kind: ProviderConfig
+                  metadata:
+                    name: remote-aks
+                  spec:
+                    credentials:
+                      source: Secret
+                      secretRef:
+                        namespace: crossplane-system
+                        name: ""
+                        key: kubeconfig
+                patches:
+                  - type: FromCompositeFieldPath
+                    fromFieldPath: spec.parameters.clusterConnectionSecretName
+                    toFieldPath: spec.credentials.secretRef.name
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crossplane-installer
+  namespace: seed-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crossplane-installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: crossplane-installer
+    namespace: seed-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: crossplane-bootstrap
+  namespace: seed-system
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: crossplane-bootstrap
+    spec:
+      serviceAccountName: crossplane-installer
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: alpine/helm:3.15.3
+          command: ["/bin/sh", "/seed/bootstrap.sh"]
+          volumeMounts:
+            - name: bootstrap-files
+              mountPath: /seed
+              readOnly: true
+      volumes:
+        - name: bootstrap-files
+          configMap:
+            name: seed-bootstrap-files
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seed-bootstrap-plan
+  namespace: seed-system
+data:
+  10_crossplane_core: |
+    Crossplane core installed via the `crossplane-bootstrap` job using Helm chart `crossplane-stable/crossplane` v2.0.2.
+  20_providers: |
+    Provider packages defined in `seed-bootstrap-files.providers.yaml` (Azure pinned to v0.30.0 due to CRD validation regressions in newer releases).
+  30_providerconfigs: |
+    ProviderConfigs in `seed-bootstrap-files.providerconfigs.yaml` rely on the manual secret creation steps (`kubectl create secret …`).
+  40_claims: |
+    Populate `seed-bootstrap-files.compositions.yaml` with the desired compositions/claims.

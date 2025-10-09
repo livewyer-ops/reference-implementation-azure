@@ -38,6 +38,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 - [Potential Enhancements](#potential-enhancements)
+- [Manual Seed Bootstrap](#manual-seed-bootstrap)
 
 ## Architecture
 
@@ -310,6 +311,33 @@ This reference implementation is designed to be:
 ## Troubleshooting
 
 See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and detailed troubleshooting steps.
+
+## Manual Seed Bootstrap
+
+The Taskfile-based seed flow has been retired. Use the manual KinD instructions in
+[`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
+
+Prepare the following files (located under `seed/`):
+
+1. `user-secrets.yaml` – copy from `user-secrets.yaml.example` and paste your Azure service-
+   principal JSON under `stringData.credentials`.
+2. `seed-infrastructure-claim.yaml` – copy from `seed-infrastructure-claim.yaml.example`
+   and replace each parameter with the values from your environment (`domain`, `resourceGroup`,
+   `keyVaultName`, etc.).
+
+Then apply everything with a single command:
+
+```bash
+kubectl apply -f seed/
+kubectl wait job/crossplane-bootstrap \
+  --namespace seed-system \
+  --for=condition=Complete \
+  --timeout=15m
+```
+
+When finished, delete the `azure-service-principal` secret from `crossplane-system`, remove
+temporary files under `private/`, destroy the KinD cluster (`kind delete cluster --name seed`),
+and remove `seed/user-secrets.yaml`.
 
 ## Potential Enhancements
 

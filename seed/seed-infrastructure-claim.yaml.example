@@ -1,0 +1,22 @@
+# Copy this file to seed/seed-infrastructure-claim.yaml and update the parameters
+# with values from your environment (matches config.yaml).
+
+apiVersion: platform.livewyer.io/v1alpha1
+kind: SeedInfrastructureClaim
+metadata:
+  name: seed-default
+spec:
+  compositionRef:
+    name: seed-infrastructure
+  parameters:
+    domain: example.com
+    resourceGroup: rg-example
+    keyVaultName: kv-example
+    location: westeurope
+    tenantId: 00000000-0000-0000-0000-000000000000
+    clientId: 00000000-0000-0000-0000-000000000000
+    subscriptionId: 00000000-0000-0000-0000-000000000000
+    clusterName: aks-example
+    wildcardAddress: 127.0.0.1
+    configSecretName: cnoe-config
+    clusterConnectionSecretName: cnoe-kubeconfig

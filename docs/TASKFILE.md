@@ -11,8 +11,12 @@ task sync          # Deploy/update components (equivalent to helmfile sync)
 task diff          # Show pending changes
 task update        # Update configuration secrets
 task uninstall     # Remove all components
+```
+
+> For the seed bootstrap flow, use the manual runbook in `docs/SEED_MANUAL.md` (KinD + `kubectl apply`).
 
 # Helper tasks (for demo/testing only):
+```bash
 task test:aks:create     # Create test AKS cluster (NOT for production)
 task test:aks:destroy    # Delete test AKS cluster
 task azure:creds:create  # Create Azure credentials (demo only)
@@ -85,4 +89,3 @@ task install
 ```
 
 > **Important**: Tasks prefixed with `test:` or `azure:creds:` are helper functions for demonstration and testing purposes only. They are **NOT recommended for production deployments**. Production infrastructure should be managed using your organization's standard infrastructure management practices.
-
