@@ -462,6 +462,7 @@ spec:
                     - fromFieldPath: spec.parameters.githubClientSecret
                     - fromFieldPath: spec.parameters.githubWebhookUrl
                     - fromFieldPath: spec.parameters.githubWebhookSecret
+                    - fromFieldPath: spec.parameters.githubPrivateKey
                     - fromFieldPath: status.managedIdentities.crossplane.clientId
                     - fromFieldPath: status.managedIdentities.crossplane.tenantId
                     - fromFieldPath: status.managedIdentities.externalDns.clientId
@@ -473,39 +474,8 @@ spec:
                     - fromFieldPath: spec.parameters.clusterOidcIssuerUrl
                   strategy: string
                   string:
-                    fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s"},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"externaldns_workload_identity":{"clientId":"%s","tenantId":"%s"},"externalsecrets_workload_identity":{"clientId":"%s","tenantId":"%s"},"keycloak_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
+                    fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s","privateKey":%q},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"externaldns_workload_identity":{"clientId":"%s","tenantId":"%s"},"externalsecrets_workload_identity":{"clientId":"%s","tenantId":"%s"},"keycloak_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
                 toFieldPath: stringData[config.json]
-          - name: keyVaultConfigSecret
-            base:
-              apiVersion: keyvault.azure.upbound.io/v1beta1
-              kind: Secret
-              metadata:
-                name: keyvault-config
-                annotations:
-                  crossplane.io/external-name: config
-              spec:
-                providerConfigRef:
-                  name: azure-keyvault
-                forProvider:
-                  name: config
-                  keyVaultIdRef:
-                    name: ""
-                  contentType: application/json
-                  valueSecretRef:
-                    key: config.json
-                    name: ""
-                    namespace: crossplane-system
-                managementPolicies:
-                  - Observe
-                  - Update
-                  - LateInitialize
-            patches:
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.keyVaultName
-                toFieldPath: spec.forProvider.keyVaultIdRef.name
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.configSecretName
-                toFieldPath: spec.forProvider.valueSecretRef.name
           - name: userAssignedIdentityCrossplane
             base:
               apiVersion: managedidentity.azure.upbound.io/v1beta1

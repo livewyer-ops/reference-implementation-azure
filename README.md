@@ -95,6 +95,7 @@ This repository provides a reference implementation for deploying Cloud Native O
 - **Azure Resource Management**: The seed phase now assumes that only the AKS cluster and its parent DNS zone already exist. Crossplane compositions create or reconcile the supporting pieces (service-principal secret, Key Vault, wildcard DNS record, Helm provider configuration) once you supply those inputs and provide the remote kubeconfig as a Kubernetes secret.
 - **Production Readiness**: The helper tasks in this repository are for creating Azure resources for demo purposes only. Any production deployments should follow enterprise infrastructure management practices.
 - **Configuration Management**: The claim renders the platform configuration into `cnoe-config` (stored as a Kubernetes secret and mirrored to Key Vault). The `private/` directory is only for temporary files during development and must never be committed.
+- **GitHub App Private Key**: `cnoe-config` now embeds the GitHub app private key (escaped via `%q`) so ExternalSecrets can consume it directly; keep the claim field in sync before reapplying.
 
 ## Prerequisites
 
@@ -295,6 +296,8 @@ instructions in [`docs/SEED_MANUAL.md`](docs/SEED_MANUAL.md).
 # or REMOTE_KUBECONFIG=/path/to/aks kubeconfig ./bootstrap.sh
 ```
 
+Helper scripts under `hack/` provide common flows: `deployment.sh`, `reconcile.sh`, and `reset.sh`. The reset helper aggressively removes AKS/Argo CD resources and Azure artefacts (identities, role assignments, Key Vault secrets, DNS records). Set `AZ_PRESERVE_KEYVAULT=1` if you need to keep the vault.
+
 Prepare the claim manifest (located under `seed/`):
 
 1. `seed-infrastructure-claim.yaml` – copy from `seed/seed-infrastructure-claim.yaml.example` into `private/seed-infrastructure-claim.yaml`, then replace
@@ -326,6 +329,12 @@ temporary files under `private/`, destroy the KinD cluster (`kind delete cluster
 and remove `private/seed-infrastructure-claim.yaml` (which contains the client secret). Remove the
 `cnoe-kubeconfig` secret after the run and recreate it from fresh credentials whenever you rotate
 remote cluster access.
+
+## Cluster Interaction Cheat Sheet
+
+- **Seed (KinD) context** – export `KUBECONFIG=$(pwd)/private/seed-kubeconfig`; inspect Crossplane state with `kubectl get providers.pkg.crossplane.io` or `kubectl describe seedinfrastructure seed-default-7znlj`.
+- **Remote AKS context** – use `kubectl --kubeconfig=private/kubeconfig`; monitor Argo CD (`kubectl -n argocd get applications`) and addon namespaces.
+- **Scripts** – `hack/deployment.sh` (fresh bootstrap), `hack/reconcile.sh` (reapply claim + resync Argo CD/ExternalSecrets), `hack/reset.sh` (remove remote resources, Azure identities, and tear down KinD).
 
 ## Potential Enhancements
 

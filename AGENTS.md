@@ -64,6 +64,7 @@
 ## Build, Test, and Development Commands
 - `kubectl apply -f seed/seed-kickoff.yaml` and `kubectl apply -f private/seed-infrastructure-claim.yaml` are the primary iteration levers.
 - `kubectl get seedinfrastructure* -o json | jq` surfaces Crossplane conditions when iterating on the composition.
+- `hack/reconcile.sh` replays the claim + triggers Argo CD refreshes; `hack/reset.sh` performs a blunt cleanup (Kubernetes + Azure) when you need to start over.
 - Remote checks:
   ```bash
   kubectl --kubeconfig=private/kubeconfig -n argocd get applications
@@ -91,3 +92,4 @@
 - Keep `private/seed-infrastructure-claim.yaml`, `private/kubeconfig`, and any downloaded Azure material out of git—remove them after each run.
 - Rotate the Azure client secret and update both `clientSecret` and `clientObjectId` in the claim whenever the service principal is regenerated.
 - Delete the `azure-service-principal` and `cnoe-kubeconfig` secrets in `crossplane-system` when finished, and tear down the KinD cluster to avoid drift.
+- `cnoe-config` embeds the GitHub app private key using Go `%q` escaping; keep the claim value fresh before reapplying so ExternalSecrets and Key Vault stay aligned.

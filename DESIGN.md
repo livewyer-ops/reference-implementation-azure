@@ -15,6 +15,14 @@ Stand up the CNOE reference implementation on Azure using a Crossplane-driven se
 - Remote AKS remains aligned to the legacy topology. We intentionally avoid reworking addon manifests or Argo CD structure; the product surface (charts, values, namespaces) should be indistinguishable from the Taskfile/Helmfile output.
 - Success is measured by delivering the same end-state as the `v2` workflow while reducing manual steps. Any divergence from the legacy configuration must be called out explicitly before implementation.
 
+## Legacy Taskfile / Helmfile Parity
+- **Taskfile `install` → `hack/deployment.sh` / seed claim:** standing up KinD, Crossplane, providers, and the Argo CD/AppSet/remote Crossplane releases is automated by the seed composition instead of local Helmfile invocations.
+- **Taskfile `sync` → `hack/reconcile.sh`:** reapplying the composition/claim plus triggering Argo CD refreshes replaces Helmfile sync operations.
+- **Taskfile `uninstall` → `hack/reset.sh`:** deletes remote Applications/WorkloadIdentities, removes Azure artefacts (identities, role assignments, secrets, DNS), and finally tears down the KinD cluster—mirrors the cleanup the Taskfile previously performed.
+- **Helmfile values (`packages/`)** remain untouched; the seed pipeline feeds them the same inputs the Taskfile produced. Any change to addon behaviour still flows through chart/version bumps in `packages/`, just as it did on `v2`.
+- **Azure side-effects:** user-assigned identities, role assignments, DNS wildcard, Key Vault secret, and provider configs are created by the composition instead of ad-hoc `az` commands. The reset script now tears them down for parity with the old flow.
+- **Reset parity:** `hack/reset.sh` forcibly removes remote Kubernetes objects, clears finalizers, deletes user-assigned identities/role assignments/Key Vault secrets (and optionally the vault itself), then drops the KinD cluster—corresponding to the legacy Taskfile teardown.
+
 ## Control-Plane Roles
 1. **Seed Crossplane (KinD)** – performs bootstrap duties only:
    - Create or reconcile Azure identities, role assignments, DNS wildcard, and Key Vault.
@@ -61,10 +69,14 @@ Stand up the CNOE reference implementation on Azure using a Crossplane-driven se
   - `azure-service-principal` generated in seed cluster for Azure API access.
   - `cnoe-kubeconfig` uploaded manually to allow provider-helm/provider-kubernetes connections.
   - `private/seed-infrastructure-claim.yaml` (untracked) holds sensitive Azure/GitHub data.
-  - Remote Crossplane bootstrap secrets (e.g., `cnoe-config`) are written by the seed composition and consumed by Argo CD.
+  - Remote Crossplane bootstrap secrets (e.g., `cnoe-config`) are written by the seed composition and consumed by Argo CD. The GitHub app private key is now JSON-escaped into `cnoe-config`, restoring parity with the legacy workflow.
 - **Charts:**
   - ApplicationSet chart hosted in `charts/` and referenced via claim fields.
   - Remote Crossplane Helm release + addon charts are reconciled by Argo CD in AKS.
+
+## Secret Workflow Considerations
+- `cnoe-config` now includes the GitHub app private key using `%q` escaping, matching the legacy Taskfile behaviour. ExternalSecrets can continue reading the key from the config secret (and mirrored Key Vault entry) without extra plumbing.
+- Reapply the claim after rotating the private key; re-running `hack/reconcile.sh` will refresh both the seed secret and the Key Vault copy.
 
 ## Error Handling & Observability
 - Seed composition events surface in `kubectl describe seedinfrastructures`.
