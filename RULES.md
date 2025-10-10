@@ -31,7 +31,7 @@ The following is the LiveWyer Cloud Native Operational Engineering Standards (Ca
 * Any helm deployments from the console will be managed via a helmfile
 * Don't change component versions unless confirmed by user  Provide clear reason for version change
 * Do not manually create resources, unless temporarily testing something all resources must be applied via the codebase that is meant to apply them rather then hacking a quick fix, progress is measured in working code not immediate patches
-* We start with the latest version of all software, components and dependencies and only revert back to old versions if we have a clear need to do so which is confirmed by the end user
+*  We start with the latest version of all software, components and dependencies and only revert back to old versions if we have a clear need to do so which is confirmed by the end user
 * DO NOT randomly apply self generated yaml. The goalnis for changes to be in the code base so we can recreate the environment from scratch
 * The goal isnalways to build an infrastructure software product that can be used by a third party. Not just a working target environment.
   - If we cannot get to the current state using our codebase then we have failed.
