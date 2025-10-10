@@ -1,10 +1,52 @@
----
 apiVersion: v1
 kind: Namespace
 metadata:
   name: crossplane-system
 ---
-# Source: crossplane/templates/rbac-manager-serviceaccount.yaml
+---
+# Source: crossplane/charts/apollo/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: apollo
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: crossplane/charts/upbound/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: upbound-controller-manager
+  namespace: crossplane-system
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: crossplane/charts/webui/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webui
+  labels:    
+    app: webui
+    chart: webui-1.0.0
+    release: crossplane
+    heritage: Helm
+    version: 1.0.0
+---
+# Source: crossplane/templates/crossplane/rbac-manager-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -12,15 +54,15 @@ metadata:
   namespace: crossplane-system
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 ---
-# Source: crossplane/templates/serviceaccount.yaml
+# Source: crossplane/templates/crossplane/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -28,15 +70,15 @@ metadata:
   namespace: crossplane-system
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 ---
-# Source: crossplane/templates/secret.yaml
+# Source: crossplane/templates/crossplane/secret.yaml
 # The reason this is created empty and filled by the init container is we want
 # to manage the lifecycle of the secret via Helm. This way whenever Crossplane
 # is deleted, the secret is deleted as well.
@@ -47,7 +89,7 @@ metadata:
   namespace: crossplane-system
 type: Opaque
 ---
-# Source: crossplane/templates/secret.yaml
+# Source: crossplane/templates/crossplane/secret.yaml
 # The reason this is created empty and filled by the init container is we want
 # to manage the lifecycle of the secret via Helm. This way whenever Crossplane
 # is deleted, the secret is deleted as well.
@@ -58,7 +100,7 @@ metadata:
   namespace: crossplane-system
 type: Opaque
 ---
-# Source: crossplane/templates/secret.yaml
+# Source: crossplane/templates/crossplane/secret.yaml
 # The reason this is created empty and filled by the init container is we want
 # to manage the lifecycle of the secret via Helm. This way whenever Crossplane
 # is deleted, the secret is deleted as well.
@@ -69,39 +111,549 @@ metadata:
   namespace: crossplane-system
 type: Opaque
 ---
-# Source: crossplane/templates/clusterrole.yaml
+# Source: crossplane/templates/versions.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upbound-crossplane-versions
+  namespace: crossplane-system
+  labels:
+    helm.sh/chart: crossplane-2.0.2-up.4
+    app.kubernetes.io/name: crossplane
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "2.0.2-up.4"
+    app.kubernetes.io/managed-by: Helm
+data:
+  crossplaneVersion: 2.0.2-up.1
+  uxpVersion: 2.0.2-up.4
+  upboundControllerManagerVersion: "0.1.0-rc.0.240.ge5976e7"
+  webUIVersion: "1.0.0"
+  apolloVersion: "0.1.1"
+---
+# Source: crossplane/charts/upbound/templates/clusterrole-upbound-packages-to-crossplane.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-packages:aggregate-to-crossplane
+  labels:
+    rbac.crossplane.io/aggregate-to-crossplane: "true"
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+    - pkg.upbound.io
+  resources:
+    - addons
+    - addons/status
+    - addonrevisions
+    - addonrevisions/status
+    - addonruntimeconfigs
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+    - delete
+    - deletecollection
+---
+# Source: crossplane/charts/upbound/templates/clusterrole-upboundruntime.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-crossplane:package-runtime-permissions
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+    - licensing.upbound.io
+  resources:
+    - licenses
+  verbs:
+    - get
+    - list
+- apiGroups:
+    - ""
+  resources:
+    - nodes # License check may require access to nodes to validate cluster type
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups: # TODO: these are a temporary workaround for Functions. xref https://github.com/crossplane/crossplane/issues/6663
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+---
+# Source: crossplane/charts/upbound/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-controller-manager
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        rbac.crossplane.io/aggregate-to-crossplane: "true"
+    - matchLabels:
+        rbac.crossplane.io/aggregate-to-upbound-controller-manager: "true"
+---
+# Source: crossplane/charts/upbound/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-controller-manager:system:aggregate-to-upbound-controller-manager
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+    rbac.crossplane.io/aggregate-to-upbound-controller-manager: "true"
+rules:
+- apiGroups:
+    - ""
+  resources:
+    - namespaces # addon package controllers (helm client) require access to namespaces
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+- apiGroups:
+    - ""
+  resources:
+    - serviceaccounts
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+    - delete
+- apiGroups:
+    - ""
+  resources:
+    - nodes # License check may require access to nodes to validate cluster type
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - autoscaling.k8s.io
+  resources:
+    - verticalpodautoscalers
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+    - delete
+- apiGroups:
+    - licensing.upbound.io
+  resources:
+    - licenses
+    - licenses/status
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+- apiGroups:
+    - pkg.upbound.io
+  resources:
+    - upboundruntimeconfigs
+    - addons
+    - addons/status
+    - addonrevisions
+    - addonrevisions/status
+    - addonruntimeconfigs
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+- apiGroups:
+    - admin.uxp.upbound.io
+  resources:
+    - backups
+    - backups/status
+    - restores
+    - restores/status
+    - backupconfigs
+    - backupschedules
+    - backupschedules/status
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+    - delete
+- apiGroups:
+    - cert-manager.io
+  resources:
+    - certificates
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - cert-manager.io
+  resources:
+    - certificates/status
+  verbs:
+    - get
+- apiGroups:
+    - serving.knative.dev
+  resources:
+    - revisions
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - serving.knative.dev
+  resources:
+    - revisions/status
+    - services/status
+  verbs:
+    - get
+- apiGroups:
+    - serving.knative.dev
+  resources:
+    - services
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - apps
+  resources:
+    - statefulsets # licensing controller manages uxp-metering statefulset lifecycle
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - ops.upbound.io
+  resources:
+    - analyses
+    - remediations
+    - remediationrequests
+    - analyses/status
+    - remediations/status
+    - remediationrequests/status
+  verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - watch
+# Needed by analysis controller for looking up involvedObjects (currently just
+# looking at pods).
+- apiGroups:
+    - ""
+  resources:
+    - pods
+  verbs:
+    - get
+---
+# Source: crossplane/charts/upbound/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-controller-manager:system:aggregate-to-admin
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+    rbac.crossplane.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - licensing.upbound.io
+    resources:
+      - licenses
+      - licenses/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+  - apiGroups:
+      - pkg.upbound.io
+    resources:
+      - upboundruntimeconfigs
+      - addons
+      - addons/status
+      - addonrevisions
+      - addonrevisions/status
+      - addonruntimeconfigs
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+  - apiGroups:
+      - admin.uxp.upbound.io
+    resources:
+      - backups
+      - backups/status
+      - restores
+      - restores/status
+      - backupconfigs
+      - backupschedules
+      - backupschedules/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ops.upbound.io
+    resources:
+      - analyses
+      - remediations
+      - remediationrequests
+      - analyses/status
+      - remediations/status
+      - remediationrequests/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+---
+# Source: crossplane/charts/upbound/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-controller-manager:system:aggregate-to-edit
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+    rbac.crossplane.io/aggregate-to-edit: "true"
+rules:
+  - apiGroups:
+      - licensing.upbound.io
+    resources:
+      - licenses
+      - licenses/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+  - apiGroups:
+      - pkg.upbound.io
+    resources:
+      - upboundruntimeconfigs
+      - addons
+      - addons/status
+      - addonrevisions
+      - addonrevisions/status
+      - addonruntimeconfigs
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+  - apiGroups:
+      - admin.uxp.upbound.io
+    resources:
+      - backups
+      - backups/status
+      - restores
+      - restores/status
+      - backupconfigs
+      - backupschedules
+      - backupschedules/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ops.upbound.io
+    resources:
+      - analyses
+      - remediations
+      - remediationrequests
+      - analyses/status
+      - remediations/status
+      - remediationrequests/status
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - watch
+---
+# Source: crossplane/charts/upbound/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upbound-controller-manager:system:aggregate-to-view
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+    rbac.crossplane.io/aggregate-to-view: "true"
+rules:
+  - apiGroups:
+      - licensing.upbound.io
+    resources:
+      - licenses
+      - licenses/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - pkg.upbound.io
+    resources:
+      - upboundruntimeconfigs
+      - addons
+      - addons/status
+      - addonrevisions
+      - addonrevisions/status
+      - addonruntimeconfigs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - admin.uxp.upbound.io
+    resources:
+      - backups
+      - backups/status
+      - restores
+      - restores/status
+      - backupconfigs
+      - backupschedules
+      - backupschedules/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ops.upbound.io
+    resources:
+      - analyses
+      - remediations
+      - remediationrequests
+      - analyses/status
+      - remediations/status
+      - remediationrequests/status
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: crossplane/templates/crossplane/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-crossplane: "true"
 ---
-# Source: crossplane/templates/clusterrole.yaml
+# Source: crossplane/templates/crossplane/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane:system:aggregate-to-crossplane
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
     crossplane.io/scope: "system"
     rbac.crossplane.io/aggregate-to-crossplane: "true"
 rules:
@@ -190,39 +742,39 @@ rules:
   - watch
   - delete
 ---
-# Source: crossplane/templates/rbac-manager-allowed-provider-permissions.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-allowed-provider-permissions.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane:allowed-provider-permissions
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-allowed-provider-permissions: "true"
 ---
-# Source: crossplane/templates/rbac-manager-clusterrole.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane-rbac-manager
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 rules:
 - apiGroups:
   - ""
@@ -350,83 +902,83 @@ rules:
   - watch
   - delete
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane-admin
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-admin: "true"
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane-edit
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-edit: "true"
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane-view
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-view: "true"
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: crossplane-browse
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.crossplane.io/aggregate-to-browse: "true"
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -434,13 +986,13 @@ metadata:
   labels:
     rbac.crossplane.io/aggregate-to-admin: "true"
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 rules:
 # Crossplane administrators have access to view events.
 - apiGroups: [""]
@@ -480,7 +1032,7 @@ rules:
   resources: [customresourcedefinitions]
   verbs: [get, list, watch]
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -488,13 +1040,13 @@ metadata:
   labels:
     rbac.crossplane.io/aggregate-to-edit: "true"
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 rules:
 # Crossplane editors have access to view events.
 - apiGroups: [""]
@@ -523,7 +1075,7 @@ rules:
   resources: ["*"]
   verbs: ["*"]
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -531,13 +1083,13 @@ metadata:
   labels:
     rbac.crossplane.io/aggregate-to-view: "true"
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 rules:
 # Crossplane viewers have access to view events.
 - apiGroups: [""]
@@ -561,7 +1113,7 @@ rules:
   resources: ["*"]
   verbs: [get, list, watch]
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -569,13 +1121,13 @@ metadata:
   labels:
     rbac.crossplane.io/aggregate-to-browse: "true"
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 rules:
 # Crossplane browsers have access to view events.
 - apiGroups: [""]
@@ -589,20 +1141,86 @@ rules:
   resources: ["*"]
   verbs: [get, list, watch]
 ---
-# Source: crossplane/templates/clusterrolebinding.yaml
+# Source: crossplane/charts/apollo/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: apollo
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: apollo
+  namespace: crossplane-system
+---
+# Source: crossplane/charts/upbound/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: upbound-controller-manager
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: upbound-controller-manager
+subjects:
+- kind: ServiceAccount
+  name: upbound-controller-manager
+  namespace: crossplane-system
+---
+# Source: crossplane/charts/upbound/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: upbound-controller-as-rbac-manager
+  labels:
+    app: upbound
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crossplane-rbac-manager
+subjects:
+  - kind: ServiceAccount
+    name: upbound-controller-manager
+    namespace: crossplane-system
+---
+# Source: crossplane/templates/crossplane/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: crossplane
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -612,20 +1230,20 @@ subjects:
   name: crossplane
   namespace: crossplane-system
 ---
-# Source: crossplane/templates/rbac-manager-clusterrolebinding.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: crossplane-rbac-manager
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -635,20 +1253,20 @@ subjects:
   name: rbac-manager
   namespace: crossplane-system
 ---
-# Source: crossplane/templates/rbac-manager-managed-clusterroles.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-managed-clusterroles.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: crossplane-admin
   labels:
     app: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -658,7 +1276,130 @@ subjects:
   kind: Group
   name: crossplane:masters
 ---
-# Source: crossplane/templates/service.yaml
+# Source: crossplane/charts/apollo/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: crossplane-apollo-metrics
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8085
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+---
+# Source: crossplane/charts/apollo/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: spaces-apollo
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: api
+      protocol: TCP
+      name: api
+  selector:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+---
+# Source: crossplane/charts/apollo/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: spaces-etcd
+  namespace: kube-system
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2379
+      targetPort: 2379
+      protocol: TCP
+      name: etcd
+  selector:
+    component: etcd
+    tier: control-plane
+---
+# Source: crossplane/charts/upbound/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: upbound-controller-manager
+  namespace: crossplane-system
+  labels:
+    app: upbound
+    release: crossplane
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8082
+    targetPort: measurement
+    protocol: TCP
+    name: measurements
+  selector:
+    app: upbound
+    release: crossplane
+---
+# Source: crossplane/charts/webui/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: webui
+  labels:    
+    app: webui
+    chart: webui-1.0.0
+    release: crossplane
+    heritage: Helm
+    version: 1.0.0
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: webui
+    release: crossplane
+---
+# Source: crossplane/templates/crossplane/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -667,13 +1408,13 @@ metadata:
   labels:
     app: crossplane
     release: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
   annotations:
 spec:
   selector:
@@ -684,7 +1425,372 @@ spec:
     port: 9443
     targetPort: 9443
 ---
-# Source: crossplane/templates/deployment.yaml
+# Source: crossplane/charts/apollo/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crossplane-apollo
+  labels:
+    app: apollo-apollo
+    release: crossplane
+    mxe.upbound.io/component: control-plane
+    app.kubernetes.io/name: apollo-apollo
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.1"
+    version: "0.1.1"
+    helm.sh/chart: apollo-mxe-0.1.1
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: apollo-apollo
+      release: crossplane
+      mxe.upbound.io/component: control-plane
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: apollo-apollo
+        release: crossplane
+        mxe.upbound.io/component: control-plane
+        app.kubernetes.io/name: apollo-apollo
+        app.kubernetes.io/instance: crossplane
+        app.kubernetes.io/version: "0.1.1"
+        version: "0.1.1"
+    spec:
+      serviceAccountName: apollo
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: apollo-syncer
+        image: "xpkg.upbound.io/upbound/uxp-apollo:v0.1.1"
+        imagePullPolicy: IfNotPresent
+        command:
+          - uxp-apollo
+          - syncer
+          - sync
+        args:
+        - --metrics-port=8081
+        - --postgres-url=postgres://postgres:postgres@localhost:5432/upbound
+        env:
+        - name: DEPLOYMENT_MODE
+          value: "single-tenant"
+        volumeMounts:
+        - name: etc-ca-certificates
+          mountPath: /etc/ca-certificates
+          readOnly: true
+        - name: shared-certs
+          mountPath: /etc/kubernetes/pki
+          readOnly: true
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+      - name: postgres
+        image: 'postgres:14'
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POSTGRES_DB
+          value: upbound
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        ports:
+        - containerPort: 5432
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/usr/local/bin/pg_ctl", "stop", "-D", "/var/lib/postgresql/data", "-w", "-t", "60", "-m", "smart"]
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgresdata
+      - name: uxp-apollo
+        securityContext:
+          {}
+        image: "xpkg.upbound.io/upbound/uxp-apollo:v0.1.1"
+        imagePullPolicy: IfNotPresent
+        command:
+          - uxp-apollo
+          - server
+        args:
+        - server
+        - --postgres-url=postgres://postgres:postgres@localhost:5432/upbound
+        ports:
+        - name: metrics
+          containerPort: 8085
+          protocol: TCP
+        - name: api
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DEPLOYMENT_MODE
+          value: "single-tenant"
+        #
+        # - name: PGUSER
+        #   value: crossplane-controller
+        # # - name: PGPASSWORD
+        # #   valueFrom:
+        # #     secretKeyRef:
+        # #       name: crossplane-apollo-pg-app
+        # #       key: password
+        #
+        #
+        # - name: PGSSLROOTCERT
+        #   value: /etc/upbound/postgres/ca/ca.crt
+        #
+        #   TODO(RedbackThomson): Configure the SPACE_API_* environment
+        #   variables as extraEnv when running in cloud.
+        # - name: SPACE_API_PORT
+        #   value: .Values.api.proxy.service.api.port
+        # - name: SPACE_API_INSECURE
+        #   value: .Values.api.insecure
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        #
+        #
+        # - name: uxp-apollo-postgres-ca
+        #   mountPath: /etc/upbound/postgres/ca
+        #   readOnly: true
+        #
+      volumes:
+      #
+      - name: postgresdata
+        emptyDir: {}
+      - name: etc-ca-certificates
+        hostPath:
+          path: /etc/ca-certificates
+          type: DirectoryOrCreate
+      - name: k8s-certs
+        hostPath:
+          path: /etc/kubernetes/pki
+          type: DirectoryOrCreate
+      - name: shared-certs
+        emptyDir: {}
+---
+# Source: crossplane/charts/upbound/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upbound-controller-manager
+  namespace: crossplane-system
+  labels:
+    app: upbound
+    release: crossplane
+    helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+    app.kubernetes.io/name: upbound
+    app.kubernetes.io/instance: crossplane
+    app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: upbound
+      release: crossplane
+  template:
+    metadata:
+      labels:
+        app: upbound
+        release: crossplane
+        helm.sh/chart: upbound-0.1.0-rc.0.240.ge5976e7
+        app.kubernetes.io/name: upbound
+        app.kubernetes.io/instance: crossplane
+        app.kubernetes.io/version: "0.1.0-rc.0.240.ge5976e7"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: upbound-controller-manager
+      initContainers:
+      - image: "xpkg.upbound.io/upbound/controller-manager:v0.1.0-rc.0.240.ge5976e7"
+        args:
+        - initialize
+        imagePullPolicy: IfNotPresent
+        name: initialize-crds
+        securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsUser: 65532
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+      containers:
+      - image: "xpkg.upbound.io/upbound/controller-manager:v0.1.0-rc.0.240.ge5976e7"
+        args:
+        - manager
+        imagePullPolicy: IfNotPresent
+        name: upbound
+        resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+        startupProbe:
+          failureThreshold: 30
+          periodSeconds: 2
+          tcpSocket:
+            port: readyz
+        ports:
+        - name: readyz
+          containerPort: 8081
+        - name: measurement
+          containerPort: 8082
+        securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsUser: 65532
+        env:
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                containerName: upbound
+                resource: limits.cpu
+                divisor: "1"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                containerName: upbound
+                resource: limits.memory
+                divisor: "1"
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: CROSSPLANE_VERSION
+            valueFrom:
+              configMapKeyRef:
+                name: "upbound-crossplane-versions"
+                key: "crossplaneVersion"
+          - name: LEADER_ELECTION
+            value: "true"
+          - name: METERING_MANIFEST
+            value: YXBpVmVyc2lvbjogYXBwcy92MQpraW5kOiBTdGF0ZWZ1bFNldAptZXRhZGF0YToKICBuYW1lOiB1eHAtbWV0ZXJpbmcKICBuYW1lc3BhY2U6IGNyb3NzcGxhbmUtc3lzdGVtCiAgbGFiZWxzOgogICAgYXBwLmt1YmVybmV0ZXMuaW8vbmFtZTogdXhwLW1ldGVyaW5nCiAgICBhcHAua3ViZXJuZXRlcy5pby9jb21wb25lbnQ6IG1ldGVyaW5nCiAgICBhcHAua3ViZXJuZXRlcy5pby9tYW5hZ2VkLWJ5OiB1cGJvdW5kLWNvbnRyb2xsZXItbWFuYWdlcgpzcGVjOgogIHJlcGxpY2FzOiAxCiAgc2VydmljZU5hbWU6IHV4cC1tZXRlcmluZwogIHNlbGVjdG9yOgogICAgbWF0Y2hMYWJlbHM6CiAgICAgIGFwcC5rdWJlcm5ldGVzLmlvL25hbWU6IHV4cC1tZXRlcmluZwogICAgICBhcHAua3ViZXJuZXRlcy5pby9jb21wb25lbnQ6IG1ldGVyaW5nCiAgdGVtcGxhdGU6CiAgICBtZXRhZGF0YToKICAgICAgbGFiZWxzOgogICAgICAgIGFwcC5rdWJlcm5ldGVzLmlvL25hbWU6IHV4cC1tZXRlcmluZwogICAgICAgIGFwcC5rdWJlcm5ldGVzLmlvL2NvbXBvbmVudDogbWV0ZXJpbmcKICAgIHNwZWM6CiAgICAgIGNvbnRhaW5lcnM6CiAgICAgIC0gbmFtZTogbWV0ZXJpbmcKICAgICAgICBpbWFnZTogInhwa2cudXBib3VuZC5pby91cGJvdW5kL2NvbnRyb2xsZXItbWFuYWdlcjp2MC4xLjAtcmMuMC4yNDAuZ2U1OTc2ZTciCiAgICAgICAgaW1hZ2VQdWxsUG9saWN5OiBJZk5vdFByZXNlbnQKICAgICAgICBhcmdzOgogICAgICAgIC0gbWV0ZXJpbmcKICAgICAgICByZXNvdXJjZXM6CiAgICAgICAgICBsaW1pdHM6CiAgICAgICAgICAgIGNwdTogNTAwbQogICAgICAgICAgICBtZW1vcnk6IDEwMjRNaQogICAgICAgICAgcmVxdWVzdHM6CiAgICAgICAgICAgIGNwdTogNTBtCiAgICAgICAgICAgIG1lbW9yeTogMTI4TWkKICAgICAgICB2b2x1bWVNb3VudHM6CiAgICAgICAgICAtIG1vdW50UGF0aDogL2RhdGEvbWV0ZXJpbmcKICAgICAgICAgICAgbmFtZTogbWV0ZXJpbmctc3RvcmFnZQogICAgICByZXN0YXJ0UG9saWN5OiBBbHdheXMKICAgICAgc2VydmljZUFjY291bnROYW1lOiB1cGJvdW5kLWNvbnRyb2xsZXItbWFuYWdlciAjIFRPRE8obHN2aWJlbik6IGNyZWF0ZSBvd24gc2VydmljZSBhY2NvdW50CiAgdm9sdW1lQ2xhaW1UZW1wbGF0ZXM6CiAgICAtIG1ldGFkYXRhOgogICAgICAgIG5hbWU6IG1ldGVyaW5nLXN0b3JhZ2UKICAgICAgc3BlYzoKICAgICAgICBhY2Nlc3NNb2RlczoKICAgICAgICAgIC0gUmVhZFdyaXRlT25jZQogICAgICAgIHJlc291cmNlczoKICAgICAgICAgIHJlcXVlc3RzOgogICAgICAgICAgICBzdG9yYWdlOiAxMEdp
+        volumeMounts:
+          - mountPath: /cache/xpkg
+            name: package-cache
+          - mountPath: /cache/backups
+            name: backup-cache
+      volumes:
+      - name: package-cache
+        emptyDir:
+          medium: 
+          sizeLimit: 20Mi
+      - name: backup-cache
+        emptyDir:
+          medium: 
+          sizeLimit: 20Mi
+---
+# Source: crossplane/charts/webui/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webui
+  labels:
+    repository: upbound-frontend    
+    app: webui
+    chart: webui-1.0.0
+    release: crossplane
+    heritage: Helm
+    version: 1.0.0
+spec:
+  selector:
+    matchLabels:
+      app: webui
+      release: crossplane
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: webui
+        release: crossplane
+        version: 1.0.0
+    spec:
+      serviceAccountName: webui
+      containers:
+        - name: webui-nginx
+          image: "xpkg.upbound.io/upbound/uxp-webui-nginx:v1.0.0"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: admin
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: CONTROL_PLANE_NAME
+              value: "crossplane"
+            - name: QUERY_API_ENDPOINT
+              value: "http://spaces-apollo.crossplane-system.svc.cluster.local:8080/apis/query.spaces.upbound.io/v1alpha2/namespaces/default/queries"
+            - name: NAMESERVER
+              value: "kube-dns.kube-system.svc.cluster.local"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: admin
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: admin
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+---
+# Source: crossplane/templates/crossplane/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -693,13 +1799,13 @@ metadata:
   labels:
     app: crossplane
     release: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 spec:
   replicas: 1
   selector:
@@ -713,19 +1819,19 @@ spec:
       labels:
         app: crossplane
         release: crossplane        
-        helm.sh/chart: crossplane-2.0.2
+        helm.sh/chart: crossplane-2.0.2-up.4
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/component: cloud-infrastructure-controller
         app.kubernetes.io/part-of: crossplane
         app.kubernetes.io/name: crossplane
         app.kubernetes.io/instance: crossplane
-        app.kubernetes.io/version: "2.0.2"
+        app.kubernetes.io/version: "2.0.2-up.4"
     spec:
       serviceAccountName: crossplane
       hostNetwork: false
       initContainers:
         - name: crossplane-init
-          image: "xpkg.crossplane.io/crossplane/crossplane:v2.0.2"
+          image: "xpkg.upbound.io/upbound/crossplane:v2.0.2-up.1"
           imagePullPolicy: IfNotPresent
           args:
           - core
@@ -781,10 +1887,12 @@ spec:
             value: crossplane-tls-client
       containers:
       - name: crossplane
-        image: "xpkg.crossplane.io/crossplane/crossplane:v2.0.2"
+        image: "xpkg.upbound.io/upbound/crossplane:v2.0.2-up.1"
         args:
         - core
         - start
+        - --enable-operations
+        - --package-runtime=External
         imagePullPolicy: IfNotPresent
         resources:
             limits:
@@ -864,7 +1972,7 @@ spec:
         secret:
           secretName: crossplane-tls-client
 ---
-# Source: crossplane/templates/rbac-manager-deployment.yaml
+# Source: crossplane/templates/crossplane/rbac-manager-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -873,13 +1981,13 @@ metadata:
   labels:
     app: crossplane-rbac-manager
     release: crossplane    
-    helm.sh/chart: crossplane-2.0.2
+    helm.sh/chart: crossplane-2.0.2-up.4
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: cloud-infrastructure-controller
     app.kubernetes.io/part-of: crossplane
     app.kubernetes.io/name: crossplane
     app.kubernetes.io/instance: crossplane
-    app.kubernetes.io/version: "2.0.2"
+    app.kubernetes.io/version: "2.0.2-up.4"
 spec:
   replicas: 1
   selector:
@@ -893,18 +2001,18 @@ spec:
       labels:
         app: crossplane-rbac-manager
         release: crossplane        
-        helm.sh/chart: crossplane-2.0.2
+        helm.sh/chart: crossplane-2.0.2-up.4
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/component: cloud-infrastructure-controller
         app.kubernetes.io/part-of: crossplane
         app.kubernetes.io/name: crossplane
         app.kubernetes.io/instance: crossplane
-        app.kubernetes.io/version: "2.0.2"
+        app.kubernetes.io/version: "2.0.2-up.4"
     spec:
       serviceAccountName: rbac-manager
       initContainers:
       - name: crossplane-init
-        image: "xpkg.crossplane.io/crossplane/crossplane:v2.0.2"
+        image: "xpkg.upbound.io/upbound/crossplane:v2.0.2-up.1"
         args:
         - rbac
         - init
@@ -936,7 +2044,7 @@ spec:
                 divisor: "1"
       containers:
       - name: crossplane
-        image: "xpkg.crossplane.io/crossplane/crossplane:v2.0.2"
+        image: "xpkg.upbound.io/upbound/crossplane:v2.0.2-up.1"
         args:
         - rbac
         - start

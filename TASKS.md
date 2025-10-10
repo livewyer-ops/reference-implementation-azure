@@ -1,21 +1,23 @@
-# Seed / Remote Split Tasks
+# Current Tasks
 
-## Task 1 – Remote Crossplane Reinstatement ☐
-- Add a dedicated release (via Argo CD/ApplicationSet) that installs Crossplane into the remote AKS cluster, mirroring the legacy Helmfile chart with no behavioural drift.
-- Ensure the remote release wires in `packages/crossplane/kustomize/` and `packages/crossplane/manifests/` so provider bundles run in AKS exactly as they did on the `v2` branch.
-- Verify remote Crossplane receives workload-identity annotations and can authenticate to Azure without requiring new manual steps.
+> Historical revisions are stored in `docs/archive/TASKS.md`.
 
-## Task 2 – Seed Bootstrap Composition Refinement ☐
-- Trim `seed/20-seed-composition.yaml` so the seed control plane creates Azure prerequisites and installs Argo CD + remote Crossplane only—the same duties formerly executed by Taskfile `az` commands and Helmfile.
-- Keep bootstrap Azure providers on the seed cluster; avoid managing addon namespaces or workloads from the seed claim so the remote cluster remains untouched.
-- Update the claim/parameters to pass any data the remote Crossplane release needs (e.g., bootstrap secrets) while keeping addon configuration in line with the legacy workflow.
+## Task 1 – Validate Seed Bootstrap Parity ☐
+- Run `hack/deployment.sh` on a clean KinD cluster and confirm the claim reaches `Ready=True`.
+- Verify bootstrap Azure resources match the legacy Taskfile output (identities, role assignments, DNS wildcard, Key Vault secret).
+- Check seed-side providers (`kubectl --kubeconfig=private/seed-kubeconfig get providers.pkg.crossplane.io`) for `Healthy=True` revisions.
 
-## Task 3 – Cleanup & Finalizer Automation ☐
-- Provide scripts or composition hooks to remove Argo CD hook jobs/roles/service accounts once the claim is deleted, preserving parity with the Helmfile teardown expectations.
-- Automate removal of Crossplane-managed objects (workload identities, object.kubernetes) that block namespace deletion so the new bootstrap remains reversible.
-- Document the teardown order for both control planes so resets stay deterministic and aligned with the historical process.
+## Task 2 – Confirm Remote Crossplane Health ☐
+- Ensure Argo CD installs the remote Crossplane release and that controller pods become ready.
+- Reconcile provider packages via `hack/reconcile.sh`; confirm remote `providerrevisions.pkg.crossplane.io` are healthy and CRDs (`*.azure.m.upbound.io`) exist.
+- Capture any drift from the origin/v2 Taskfile flow and raise follow-up issues if parity cannot be achieved.
 
-## Task 4 – Observability & Smoke Tests ☐
-- Create a verification checklist that covers seed Crossplane status, remote Crossplane providers, and addon health, highlighting equivalence with the `v2` workflow.
-- Add basic smoke tests (ExternalSecrets, Keycloak, Backstage, Argo Workflows) executed after each bootstrap to prove the new process yields the same platform state.
-- Capture troubleshooting pointers for both control planes in `DESIGN.md` or a runbook, emphasising where behaviour now differs (or intentionally matches) the legacy model.
+## Task 3 – Restore Secret Propagation ☐
+- Validate the `azure-keyvault` `ClusterSecretStore` and ExternalSecrets reach `SecretSynced=True` after bootstrap.
+- Confirm GitHub credentials and service tokens appear in target namespaces (`github-app-org`, Backstage config, External DNS secret).
+- Troubleshoot within the seed composition or helper scripts; packages/ must remain aligned with `origin/v2`.
+
+## Task 4 – Harden Automation & Observability ☐
+- Add guardrails/tests to the helper scripts (deployment, reconcile, reset) so they fail fast when prerequisites are missing.
+- Extend runbooks with verification checklists and azure cleanup guidance; document how to toggle `AZ_PRESERVE_KEYVAULT` and other flags.
+- Track outstanding gaps or defects in this task list to keep parity work visible.

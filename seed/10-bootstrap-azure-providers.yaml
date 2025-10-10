@@ -26,7 +26,7 @@ kind: Provider
 metadata:
   name: upbound-provider-azure-authorization
 spec:
-  package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.1.0
+  package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.0.0
   runtimeConfigRef:
     name: seed-workload-identity
 
@@ -36,7 +36,7 @@ kind: Provider
 metadata:
   name: upbound-provider-azure-managedidentity
 spec:
-  package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.1.0
+  package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.0.0
   runtimeConfigRef:
     name: seed-workload-identity
 
@@ -46,7 +46,7 @@ kind: Provider
 metadata:
   name: upbound-provider-azure-network
 spec:
-  package: xpkg.upbound.io/upbound/provider-azure-network:v2.1.0
+  package: xpkg.upbound.io/upbound/provider-azure-network:v2.0.0
   runtimeConfigRef:
     name: seed-workload-identity
 
@@ -56,6 +56,6 @@ kind: Provider
 metadata:
   name: upbound-provider-azure-keyvault
 spec:
-  package: xpkg.upbound.io/upbound/provider-azure-keyvault:v2.1.0
+  package: xpkg.upbound.io/upbound/provider-azure-keyvault:v2.0.0
   runtimeConfigRef:
     name: seed-workload-identity

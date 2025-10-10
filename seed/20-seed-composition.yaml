@@ -476,6 +476,50 @@ spec:
                   string:
                     fmt: '{"repo":{"url":"%s","revision":"%s","basepath":"%s"},"cluster_name":"%s","subscription":"%s","location":"%s","resource_group":"%s","domain":"%s","keyvault":"%s","path_routing":"%s","letsencrypt_env":"%s","github":{"appId":"%s","installationId":"%s","orgURL":"%s","clientId":"%s","clientSecret":"%s","webhookUrl":"%s","webhookSecret":"%s","privateKey":%q},"crossplane_workload_identity":{"clientId":"%s","tenantId":"%s"},"externaldns_workload_identity":{"clientId":"%s","tenantId":"%s"},"externalsecrets_workload_identity":{"clientId":"%s","tenantId":"%s"},"keycloak_workload_identity":{"clientId":"%s","tenantId":"%s"},"cluster_oidc_issuer_url":"%s"}'
                 toFieldPath: stringData[config.json]
+          - name: keyVaultConfigSecret
+            base:
+              apiVersion: keyvault.azure.upbound.io/v1beta1
+              kind: Secret
+              metadata:
+                name: keyvault-config
+              spec:
+                providerConfigRef:
+                  name: azure-keyvault
+                forProvider:
+                  name: config
+                  keyVaultId: ""
+                  valueSecretRef:
+                    namespace: crossplane-system
+                    name: cnoe-config
+                    key: config.json
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: metadata.uid
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.keyVaultName
+                  strategy: string
+                  string:
+                    fmt: "%s-config"
+                toFieldPath: metadata.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.keyVaultName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s"
+                toFieldPath: spec.forProvider.keyVaultId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keyVaultName
+                toFieldPath: metadata.annotations[cnoe.io/keyvault]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.configSecretName
+                toFieldPath: spec.forProvider.valueSecretRef.name
           - name: userAssignedIdentityCrossplane
             base:
               apiVersion: managedidentity.azure.upbound.io/v1beta1
