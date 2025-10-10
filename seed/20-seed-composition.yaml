@@ -526,6 +526,7 @@ spec:
               kind: UserAssignedIdentity
               metadata:
                 name: crossplane
+                annotations: {}
               spec:
                 providerConfigRef:
                   name: azure-managedidentity
@@ -539,6 +540,16 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.crossplaneIdentityName
                 toFieldPath: spec.forProvider.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.crossplaneIdentityName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.location
                 toFieldPath: spec.forProvider.location
