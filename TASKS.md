@@ -1,29 +1,21 @@
-# Crossplane-Driven Seed Deployment Tasks
+# Seed / Remote Split Tasks
 
-## Objective
-Reach full parity with the original Taskfile/Helmfile driven bootstrap by using only the `SeedInfrastructure` claim and the local Crossplane seed cluster to configure Azure identities, publish configuration to Key Vault, and deploy all CNOE addons through Argo CD/ApplicationSets.
+## Task 1 – Remote Crossplane Reinstatement ☐
+- Add a dedicated release (via Argo CD/ApplicationSet) that installs Crossplane into the remote AKS cluster, mirroring the legacy Helmfile chart with no behavioural drift.
+- Ensure the remote release wires in `packages/crossplane/kustomize/` and `packages/crossplane/manifests/` so provider bundles run in AKS exactly as they did on the `v2` branch.
+- Verify remote Crossplane receives workload-identity annotations and can authenticate to Azure without requiring new manual steps.
 
-## Task 1 – Claim Inputs & Chart Publishing ✅
-- `seed/seed-infrastructure-claim.yaml.example` now carries every field required (Azure IDs, domain, repo metadata, routing flags, GitHub App placeholders, ApplicationSet chart location).
-- The ApplicationSet chart is published under `charts/`; the claim points to the hosted index by default.
+## Task 2 – Seed Bootstrap Composition Refinement ☐
+- Trim `seed/20-seed-composition.yaml` so the seed control plane creates Azure prerequisites and installs Argo CD + remote Crossplane only—the same duties formerly executed by Taskfile `az` commands and Helmfile.
+- Keep bootstrap Azure providers on the seed cluster; avoid managing addon namespaces or workloads from the seed claim so the remote cluster remains untouched.
+- Update the claim/parameters to pass any data the remote Crossplane release needs (e.g., bootstrap secrets) while keeping addon configuration in line with the legacy workflow.
 
-## Task 2 – Azure Workload Identities & Role Assignments ✅
-- Reapplying the claim with the new `clientObjectId` parameter provisions all four user-assigned identities plus the bootstrap service principal role assignment.
-- Role assignments now use `managementPolicies` so Crossplane no longer tries to patch immutable Azure RoleAssignment objects.
+## Task 3 – Cleanup & Finalizer Automation ☐
+- Provide scripts or composition hooks to remove Argo CD hook jobs/roles/service accounts once the claim is deleted, preserving parity with the Helmfile teardown expectations.
+- Automate removal of Crossplane-managed objects (workload identities, object.kubernetes) that block namespace deletion so the new bootstrap remains reversible.
+- Document the teardown order for both control planes so resets stay deterministic and aligned with the historical process.
 
-## Task 3 – Key Vault Configuration Parity ✅
-- `keyvault-config` is successfully written to Azure Key Vault from the rendered `cnoe-config` secret.
-- Service principal RBAC is handled automatically so secret updates can be re-applied without a local helper script.
-
-## Task 4 – External DNS Credentials ✅
-- The external-dns ApplicationSet now deploys an ExternalSecret sourced from Key Vault and creates the `/etc/kubernetes/azure.json` secret via Crossplane; the pod runs successfully and updates DNS records.
-
-## Task 5 – ApplicationSet Sync & Observability 🚧
-- *Argo Workflows*: server pod crash-loops because the `keycloak-oidc` secret is missing; external-secrets entry for Keycloak must be populated first.
-- *Backstage*: PostgreSQL dependency fails (`backstage-env-vars` secret missing), so the main pod remains `ContainerCreating`.
-- *External Secrets*: `github-app-org` still reports `SecretSyncedError` when Key Vault is missing GitHub values; verify Key Vault contains the populated fields after updates.
-- *Keycloak*: server pod fails because `keycloak-config` secret is absent; ensure secrets exist before the chart starts.
-- Next steps: populate required secrets via Key Vault, re-trigger external-secrets sync, and verify each addon reaches `Healthy`.
-
-## Task 6 – Documentation & Taskfile Retirement ✅
-- README, `docs/SEED_MANUAL.md`, and `AGENTS.md` now explain the Crossplane-only workflow, call out the new `clientObjectId` requirement, and summarise still-outstanding addon gaps.
+## Task 4 – Observability & Smoke Tests ☐
+- Create a verification checklist that covers seed Crossplane status, remote Crossplane providers, and addon health, highlighting equivalence with the `v2` workflow.
+- Add basic smoke tests (ExternalSecrets, Keycloak, Backstage, Argo Workflows) executed after each bootstrap to prove the new process yields the same platform state.
+- Capture troubleshooting pointers for both control planes in `DESIGN.md` or a runbook, emphasising where behaviour now differs (or intentionally matches) the legacy model.

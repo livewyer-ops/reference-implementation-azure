@@ -1,0 +1,61 @@
+---
+# DeploymentRuntimeConfig ensures Crossplane providers in the seed cluster inherit
+# workload identity annotations and run under the Crossplane service account.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: seed-workload-identity
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        metadata:
+          labels:
+            azure.workload.identity/use: "true"
+        spec:
+          serviceAccountName: crossplane
+          containers:
+            - name: package-runtime
+              args:
+                - --debug
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-authorization
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-authorization:v2.1.0
+  runtimeConfigRef:
+    name: seed-workload-identity
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-managedidentity
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-managedidentity:v2.1.0
+  runtimeConfigRef:
+    name: seed-workload-identity
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-network
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-network:v2.1.0
+  runtimeConfigRef:
+    name: seed-workload-identity
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-keyvault
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-keyvault:v2.1.0
+  runtimeConfigRef:
+    name: seed-workload-identity
