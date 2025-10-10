@@ -14,28 +14,54 @@ import (
 )
 
 const (
-	authorUrl = "https://livewyer.io"
-	logo      = `
-.____    .___ __      __________________.___._____________________
-|    |   |   /  \    /  \_   _____/\__  |   |\_   _____/\______   \
-|    |   |   \   \/\/   /|    __)_  /   |   | |    __)_  |       _/
-|    |___|   |\        / |        \ \____   | |        \ |    |   \
-|_______ \___| \__/\  / /_______  / / ______|/_______  / |____|_  /
-       \/          \/          \/  \/               \/         \/
+	logo = `
+ ███████    ███    ██      ██████      ███████
+██          ████   ██     ██    ██
+██          ██ ██  ██     ██    ██     █████
+██          ██  ██ ██     ██    ██
+ ███████    ██   ████      ██████      ███████
 `
 
-	ansiColor     = "\033[32m" // ANSI color: Green
-	lipglossColor = "2"        // Lipgloss color: Green
-	ansiReset     = "\033[0m"  // ANSI escape sequence for reset
+	bannerText = `
+Cloud Native Operational Excellence
+https://cnoe.io
+`
+	mainColor      = "#235588" // RGB Hex color: CNOE Blue
+	highlightColor = "#4DABE8" // RGB Hex color: CNOE Light Blue
 )
 
 func printBanner() {
-	fmt.Println(ansiReset + ansiColor + logo + ansiReset)
-	var centerStyle = lipgloss.NewStyle().Width(67).Bold(true).Align(lipgloss.Center)
-	fmt.Println(centerStyle.Render(authorUrl + "\n"))
+
+	logoStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(mainColor))
+	fmt.Println(logoStyle.Render(logo))
+	bannerStyle := lipgloss.NewStyle().Bold(true)
+	fmt.Println(bannerStyle.Render(bannerText))
+
+	// var centerStyle = lipgloss.NewStyle().Width(67).Align(lipgloss.Center)
+	// fmt.Println(centerStyle.Render(logo2 + "\n"))
+	// fmt.Println(centerStyle.Render(authorUrl + "\n"))
+
+	// fmt.Println(bannerStyle.Render("Cloud Native Operational Excellence" + "\n"))
+	// Background(lipgloss.Color(mainColor))
+	// Padding(1, 2) // Padding around the text
 }
 
 var requirements = []string{
+	"kind create cluster",
+	"kubectl apply",
+	// "a",
+	// "b",
+	// "c",
+	// "d",
+	// "e",
+	// "f",
+	// "g",
+	// "h",
+	// "i",
+	// "j",
+}
+
+var tasks = []string{
 	"kind create cluster",
 	"kubectl apply",
 	"a",
@@ -48,11 +74,6 @@ var requirements = []string{
 	"h",
 	"i",
 	"j",
-}
-
-var tasks = []string{
-	"a",
-	"b",
 }
 
 func main() {
@@ -78,12 +99,13 @@ type model struct {
 }
 
 var (
-	currentPkgNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(lipglossColor))
+	currentPkgNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(mainColor))
 	doneStyle           = lipgloss.NewStyle().Margin(1, 2)
-	checkMark           = lipgloss.NewStyle().Foreground(lipgloss.Color(lipglossColor)).SetString("✓")
+	checkMark           = lipgloss.NewStyle().Foreground(lipgloss.Color(mainColor)).SetString("✓")
 )
 
 func newModel() model {
+	// Progress
 	p := progress.New(
 		progress.WithGradient("#132a21", "#63D3A6"),
 		progress.WithWidth(40),
