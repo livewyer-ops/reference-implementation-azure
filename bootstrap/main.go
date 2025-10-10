@@ -15,51 +15,20 @@ import (
 
 const (
 	logo = `
- ███████    ███    ██      ██████      ███████
-██          ████   ██     ██    ██
-██          ██ ██  ██     ██    ██     █████
-██          ██  ██ ██     ██    ██
- ███████    ██   ████      ██████      ███████
+ ███████   ███    ██    ██████    ███████
+██         ████   ██   ██    ██
+██         ██ ██  ██   ██    ██   █████
+██         ██  ██ ██   ██    ██
+ ███████   ██   ████    ██████    ███████
 `
-
 	bannerText = `
 Cloud Native Operational Excellence
 https://cnoe.io
+
 `
 	mainColor      = "#235588" // RGB Hex color: CNOE Blue
 	highlightColor = "#4DABE8" // RGB Hex color: CNOE Light Blue
 )
-
-func printBanner() {
-
-	logoStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(mainColor))
-	fmt.Println(logoStyle.Render(logo))
-	bannerStyle := lipgloss.NewStyle().Bold(true)
-	fmt.Println(bannerStyle.Render(bannerText))
-
-	// var centerStyle = lipgloss.NewStyle().Width(67).Align(lipgloss.Center)
-	// fmt.Println(centerStyle.Render(logo2 + "\n"))
-	// fmt.Println(centerStyle.Render(authorUrl + "\n"))
-
-	// fmt.Println(bannerStyle.Render("Cloud Native Operational Excellence" + "\n"))
-	// Background(lipgloss.Color(mainColor))
-	// Padding(1, 2) // Padding around the text
-}
-
-var requirements = []string{
-	"kind create cluster",
-	"kubectl apply",
-	// "a",
-	// "b",
-	// "c",
-	// "d",
-	// "e",
-	// "f",
-	// "g",
-	// "h",
-	// "i",
-	// "j",
-}
 
 var tasks = []string{
 	"kind create cluster",
@@ -76,45 +45,40 @@ var tasks = []string{
 	"j",
 }
 
-func main() {
-	// First, print banner
-	printBanner()
+// Styles
+var (
+	mainColorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(mainColor))
+	highlightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(highlightColor))
+	boldStyle      = lipgloss.NewStyle().Bold(true)
+	checkMarkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).SetString("✓")
+)
 
-	// Run BubbleTea program
-	if _, err := tea.NewProgram(newModel()).Run(); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
-	}
+type task struct {
+	description string
+	command     string
 }
 
 type model struct {
-	requirements []string
-	tasks        []string
-	index        int
-	width        int
-	height       int
-	spinner      spinner.Model
-	progress     progress.Model
-	done         bool
+	tasks    []string
+	index    int
+	width    int
+	height   int
+	spinner  spinner.Model
+	progress progress.Model
+	done     bool
 }
-
-var (
-	currentPkgNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(mainColor))
-	doneStyle           = lipgloss.NewStyle().Margin(1, 2)
-	checkMark           = lipgloss.NewStyle().Foreground(lipgloss.Color(mainColor)).SetString("✓")
-)
 
 func newModel() model {
 	// Progress
 	p := progress.New(
-		progress.WithGradient("#132a21", "#63D3A6"),
+		progress.WithGradient(mainColor, highlightColor),
 		progress.WithWidth(40),
 		progress.WithoutPercentage(),
 	)
 	s := spinner.New()
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // color: blue
+	s.Style = highlightStyle
 	return model{
-		tasks:    requirements,
+		tasks:    tasks,
 		spinner:  s,
 		progress: p,
 	}
@@ -139,8 +103,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Everything's been installed. We're done!
 			m.done = true
 			return m, tea.Sequence(
-				tea.Printf("%s %s", checkMark, pkg), // print the last success message
-				tea.Quit,                            // exit the program
+				tea.Printf("%s %s", checkMarkStyle, pkg), // print the last success message
+				tea.Quit,                                 // exit the program
 			)
 		}
 
@@ -150,8 +114,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(
 			progressCmd,
-			tea.Printf("%s %s", checkMark, pkg),  // print success message above our program
-			downloadAndInstall(m.tasks[m.index]), // download the next package
+			tea.Printf("%s %s", checkMarkStyle, pkg), // print success message above our program
+			downloadAndInstall(m.tasks[m.index]),     // download the next package
 		)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -172,22 +136,22 @@ func (m model) View() string {
 	w := lipgloss.Width(fmt.Sprintf("%d", n))
 
 	if m.done {
-		return doneStyle.Render(fmt.Sprintf("Done! Executed %d tasks.\n", n))
+		return boldStyle.Render(fmt.Sprintf("\nDone! Executed %d tasks.\n", n))
 	}
 
-	pkgCount := fmt.Sprintf(" %*d/%*d", w, m.index, w, n)
+	taskCount := fmt.Sprintf(" %*d/%*d", w, m.index, w, n)
 
 	spin := m.spinner.View() + " "
 	prog := m.progress.View()
-	cellsAvail := max(0, m.width-lipgloss.Width(spin+prog+pkgCount))
+	cellsAvail := max(0, m.width-lipgloss.Width(spin+prog+taskCount))
 
-	pkgName := currentPkgNameStyle.Render(m.tasks[m.index])
-	info := lipgloss.NewStyle().MaxWidth(cellsAvail).Render("Executing: " + pkgName)
+	taskName := highlightStyle.Render(m.tasks[m.index])
+	info := lipgloss.NewStyle().MaxWidth(cellsAvail).Render("Executing: " + taskName)
 
-	cellsRemaining := max(0, m.width-lipgloss.Width(spin+info+prog+pkgCount))
+	cellsRemaining := max(0, m.width-lipgloss.Width(spin+info+prog+taskCount))
 	gap := strings.Repeat(" ", cellsRemaining)
 
-	return spin + info + gap + prog + pkgCount
+	return spin + info + gap + prog + taskCount
 }
 
 type installedPkgMsg string
@@ -206,4 +170,16 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func main() {
+	// First, print banner
+	fmt.Println(mainColorStyle.Render(logo))
+	fmt.Println(boldStyle.Render(bannerText))
+
+	// Run BubbleTea program
+	if _, err := tea.NewProgram(newModel()).Run(); err != nil {
+		fmt.Println("Error running program:", err)
+		os.Exit(1)
+	}
 }
