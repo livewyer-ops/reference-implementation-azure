@@ -1122,6 +1122,7 @@ spec:
                               namespace: external-dns
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+                                crossplane.io/external-name: external-dns
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
@@ -1138,6 +1139,7 @@ spec:
                               namespace: external-secrets
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+                                crossplane.io/external-name: external-secrets
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
@@ -1154,6 +1156,7 @@ spec:
                               namespace: keycloak
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+                                crossplane.io/external-name: keycloak
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
