@@ -662,6 +662,147 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.clientObjectId
                 toFieldPath: spec.forProvider.principalId
+          - name: userAssignedIdentityExternalDns
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: external-dns
+                annotations: {}
+              spec:
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalDnsIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.externalDnsIdentityName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.externalDns.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.externalDns.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.externalDns.tenantId
+          - name: userAssignedIdentityExternalSecrets
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: external-secrets
+                annotations: {}
+              spec:
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.externalSecretsIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.externalSecretsIdentityName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.externalSecrets.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.externalSecrets.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.externalSecrets.tenantId
+          - name: userAssignedIdentityKeycloak
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: UserAssignedIdentity
+              metadata:
+                name: keycloak
+                annotations: {}
+              spec:
+                managementPolicies:
+                  - Observe
+                providerConfigRef:
+                  name: azure-managedidentity
+                forProvider:
+                  location: ""
+                  resourceGroupName: ""
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.keycloakIdentityName
+                toFieldPath: spec.forProvider.name
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.subscriptionId
+                    - fromFieldPath: spec.parameters.resourceGroup
+                    - fromFieldPath: spec.parameters.keycloakIdentityName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.location
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.resourceGroup
+                toFieldPath: spec.forProvider.resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.managedIdentities.keycloak.principalId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.clientId
+                toFieldPath: status.managedIdentities.keycloak.clientId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.tenantId
+                toFieldPath: status.managedIdentities.keycloak.tenantId
           - name: providerConfigHelm
             base:
               apiVersion: helm.crossplane.io/v1beta1
