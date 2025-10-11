@@ -1203,7 +1203,8 @@ spec:
                       defaultVersion: "1.16.1"
                       valuesObject:
                         serviceAccount:
-                          create: true
+                          create: false
+                          name: external-dns
                         provider:
                           name: azure
                         domainFilters:
