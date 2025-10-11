@@ -1098,6 +1098,10 @@ spec:
                                         azure.workload.identity/use: "true"
                                     spec:
                                       serviceAccountName: crossplane
+                                      containers:
+                                        - name: package-runtime
+                                          args:
+                                            - --debug
                           - apiVersion: azure.m.upbound.io/v1beta1
                             kind: ClusterProviderConfig
                             metadata:
