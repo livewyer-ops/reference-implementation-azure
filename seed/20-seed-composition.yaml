@@ -1122,7 +1122,7 @@ spec:
                               namespace: external-dns
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-                                crossplane.io/external-name: external-dns
+                                crossplane.io/external-name: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/external-dns"
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
@@ -1139,7 +1139,7 @@ spec:
                               namespace: external-secrets
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-                                crossplane.io/external-name: external-secrets
+                                crossplane.io/external-name: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/external-secrets"
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
@@ -1156,7 +1156,7 @@ spec:
                               namespace: keycloak
                               annotations:
                                 argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-                                crossplane.io/external-name: keycloak
+                                crossplane.io/external-name: "/subscriptions/{{ .metadata.annotations.subscription }}/resourceGroups/{{ .metadata.annotations.resourceGroup }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/keycloak"
                             spec:
                               forProvider:
                                 location: "{{ .metadata.annotations.location }}"
