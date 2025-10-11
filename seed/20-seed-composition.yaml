@@ -962,6 +962,15 @@ spec:
                               subscriptionID: "{{ .metadata.annotations.subscription }}"
                               clientID: "{{ .metadata.annotations.crossplaneClientId }}"
                               tenantID: "{{ .metadata.annotations.crossplaneTenantId }}"
+                          - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+                            kind: ClusterProviderConfig
+                            metadata:
+                              name: default
+                              annotations:
+                                argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+                            spec:
+                              credentials:
+                                source: InjectedIdentity
                           - apiVersion: azure.livewyer.io/v1alpha1
                             kind: WorkloadIdentity
                             metadata:
