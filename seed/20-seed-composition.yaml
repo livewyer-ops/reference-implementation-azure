@@ -1085,10 +1085,8 @@ spec:
                       chartRepository: https://charts.external-secrets.io
                       valuesObject:
                         serviceAccount:
-                          create: true
+                          create: false
                           name: workload-identity-sa
-                          annotations:
-                            azure.workload.identity/use: "true"
                         installCRDs: true
                         podLabels:
                           azure.workload.identity/use: "true"
@@ -1351,16 +1349,6 @@ spec:
                   variables:
                     - fromFieldPath: spec.parameters.keyVaultName
                 toFieldPath: spec.forProvider.values.external-secrets.valuesObject.extraObjects[0].spec.provider.azurekv.vaultUrl
-              - type: FromCompositeFieldPath
-                fromFieldPath: status.managedIdentities.externalSecrets.clientId
-                policy:
-                  fromFieldPath: Optional
-                toFieldPath: spec.forProvider.values.external-secrets.valuesObject.serviceAccount.annotations[azure.workload.identity/client-id]
-              - type: FromCompositeFieldPath
-                fromFieldPath: status.managedIdentities.externalSecrets.tenantId
-                policy:
-                  fromFieldPath: Optional
-                toFieldPath: spec.forProvider.values.external-secrets.valuesObject.serviceAccount.annotations[azure.workload.identity/tenant-id]
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.pathRouting
                 toFieldPath: spec.forProvider.values.annotations[pathRouting]
