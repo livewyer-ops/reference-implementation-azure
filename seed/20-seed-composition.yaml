@@ -1082,6 +1082,22 @@ spec:
                             azure.workload.identity/client-id: "{{ .metadata.annotations.crossplaneClientId }}"
                             azure.workload.identity/tenant-id: "{{ .metadata.annotations.crossplaneTenantId }}"
                         extraObjects:
+                          - apiVersion: pkg.crossplane.io/v1beta1
+                            kind: DeploymentRuntimeConfig
+                            metadata:
+                              name: default
+                              annotations:
+                                argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+                            spec:
+                              deploymentTemplate:
+                                spec:
+                                  selector: {}
+                                  template:
+                                    metadata:
+                                      labels:
+                                        azure.workload.identity/use: "true"
+                                    spec:
+                                      serviceAccountName: crossplane
                           - apiVersion: azure.m.upbound.io/v1beta1
                             kind: ClusterProviderConfig
                             metadata:
@@ -1446,10 +1462,14 @@ spec:
                 fromFieldPath: spec.parameters.tenantId
                 toFieldPath: spec.forProvider.values.annotations[tenantId]
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.clientId
+                fromFieldPath: status.managedIdentities.crossplane.clientId
+                policy:
+                  fromFieldPath: Optional
                 toFieldPath: spec.forProvider.values.annotations[crossplaneClientId]
               - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.tenantId
+                fromFieldPath: status.managedIdentities.crossplane.tenantId
+                policy:
+                  fromFieldPath: Optional
                 toFieldPath: spec.forProvider.values.annotations[crossplaneTenantId]
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.clusterName
