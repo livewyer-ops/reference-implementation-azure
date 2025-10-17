@@ -1,9 +1,0 @@
-sources:
-  - ingress
-txtOwnerId: cnoe-external-dns
-policy: upsert-only
-serviceAccount:
-  labels:
-    "azure.workload.identity/use": "true"
-podLabels:
-  "azure.workload.identity/use": "true"
