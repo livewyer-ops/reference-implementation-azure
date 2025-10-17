@@ -18,7 +18,7 @@ releases:
     suppressDiff: true
   - name: cnoe-appset
     namespace: argocd
-    chart: packages/charts/appset
+    chart: packages/appset-chart
     values:
       - packages/bootstrap/values.yaml
       - packages/addons/values.yaml
