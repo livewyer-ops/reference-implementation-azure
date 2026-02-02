@@ -57,8 +57,6 @@ kind: ConfigMap
 metadata:
   name: keycloak-config-job
   namespace: keycloak
-  annotations:
-    argocd.argoproj.io/sync-wave: "40"
 data:
   client-scope-groups-payload.json: |
     {
@@ -225,7 +223,7 @@ metadata:
   name: keycloak-config
   namespace: keycloak
   annotations:
-    argocd.argoproj.io/sync-wave: "50"
+    argocd.argoproj.io/sync-wave: "10"
 spec:
   template:
     metadata:
@@ -406,7 +404,7 @@ spec:
               echo "Creating ArgoCD session token for backstage"
               ARGOCD_PASSWORD=$(./kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{.data.password | base64decode }}')
 
-              ARGOCD_SESSION_TOKEN=$(curl -Lk -sS http://${ARGO_CD_URL}/api/v1/session -H 'Content-Type: application/json' -d "{\"username\":\"admin\",\"password\":\"${ARGOCD_PASSWORD}\"}" | jq -rc .token)
+              ARGOCD_SESSION_TOKEN=$(curl -Lk -sS http://argocd-server.argocd.svc.cluster.local:443/api/v1/session -H 'Content-Type: application/json' -d "{\"username\":\"admin\",\"password\":\"${ARGOCD_PASSWORD}\"}" | jq -rc .token)
 
               echo "Creating keycloak-clients secret"
 
